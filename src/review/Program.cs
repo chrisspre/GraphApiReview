@@ -1,5 +1,4 @@
 ﻿using Microsoft.TeamFoundation.SourceControl.WebApi;
-using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Client;
 using Microsoft.Identity.Client;
@@ -8,10 +7,13 @@ using System.Runtime.InteropServices;
 
 class Program
 {
-    // Azure CLI App ID for Device Code Flow (provides better authentication experience)
+    // Azure CLI App ID for Device Code Flow 
     private static readonly string ClientId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"; // Azure CLI Client ID
+
     private static readonly string Authority = "https://login.microsoftonline.com/common";
+
     private static readonly string[] Scopes = ["499b84ac-1321-427f-aa17-267ca6975798/.default"]; // Azure DevOps scope
+
     static async Task Main(string[] args)
     {
         try
@@ -237,8 +239,7 @@ class Program
                 Console.WriteLine($"Title: {ShortenTitle(pr.Title)}");
                 Console.WriteLine($"Author: {pr.CreatedBy.DisplayName}");
                 Console.WriteLine($"Status: {pr.Status}");
-                Console.WriteLine($"Created: {pr.CreationDate:yyyy-MM-dd HH:mm:ss}");
-                Console.WriteLine($"Source: {pr.SourceRefName} -> {pr.TargetRefName}");
+                Console.WriteLine($"Created: {pr.CreationDate:yyyy-MM-dd HH:mm:ss}");                
                 Console.WriteLine($"URL: {GetPullRequestUrl(pr, projectName, repositoryName)}");
                 
                 // Check if there are any reviewers (filter out groups and automation accounts)

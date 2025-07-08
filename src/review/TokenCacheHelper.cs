@@ -1,5 +1,5 @@
 using Microsoft.Identity.Client;
-// Token cache helper for better persistence
+
 public class TokenCacheHelper(string cacheDir)
 {
     private readonly string _cacheFilePath = Path.Combine(cacheDir, "msalcache.bin");

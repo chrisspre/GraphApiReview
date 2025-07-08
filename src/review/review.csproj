@@ -5,6 +5,20 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    
+    <!-- Global Tool Configuration -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>apipr</ToolCommandName>
+    <PackageId>AzureDevOpsPRChecker</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <Authors>Your Name</Authors>
+    <Description>A CLI tool to check Azure DevOps pull requests assigned to you</Description>
+    <Copyright>Copyright © 2025</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/yourusername/azdo-pr-checker</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>azure-devops;pull-requests;cli;tool</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,6 +27,10 @@
     <PackageReference Include="Microsoft.VisualStudio.Services.InteractiveClient" Version="16.205.1" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.65.0" />
     <PackageReference Include="System.Windows.Extensions" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
