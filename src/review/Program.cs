@@ -53,12 +53,20 @@ class Program
         {
             Console.WriteLine("Authenticating with Azure DevOps using Device Code Flow...");
             
-            // Create the MSAL client
+            // Create cache directory for better token persistence
+            var cacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AzureDevOpsPRChecker");
+            Directory.CreateDirectory(cacheDir);
+            
+            // Create the MSAL client with token cache
             var app = PublicClientApplicationBuilder
                 .Create(ClientId)
                 .WithAuthority(Authority)
                 .WithRedirectUri("http://localhost")
                 .Build();
+
+            // Configure token cache for better persistence
+            var cacheHelper = new TokenCacheHelper(cacheDir);
+            cacheHelper.EnableSerialization(app.UserTokenCache);
 
             AuthenticationResult? result = null;
             
@@ -68,79 +76,29 @@ class Program
                 var accounts = await app.GetAccountsAsync();
                 if (accounts.Any())
                 {
-                    Console.WriteLine("Attempting silent authentication...");
-                    result = await app.AcquireTokenSilent(Scopes, accounts.FirstOrDefault())
-                        .ExecuteAsync();
-                    Console.WriteLine("Silent authentication successful!");
+                    Console.WriteLine("Found cached account, attempting silent authentication...");
+                    try
+                    {
+                        result = await app.AcquireTokenSilent(Scopes, accounts.FirstOrDefault())
+                            .ExecuteAsync();
+                        Console.WriteLine("✅ Silent authentication successful using cached token!");
+                    }
+                    catch (MsalUiRequiredException)
+                    {
+                        Console.WriteLine("⚠️  Cached token expired, starting device code flow...");
+                        result = await PerformDeviceCodeFlowAsync(app);
+                    }
                 }
                 else
                 {
                     Console.WriteLine("No cached accounts found, starting device code flow...");
-                    // No cached accounts, use device code flow
-                    result = await app.AcquireTokenWithDeviceCode(Scopes, deviceCodeResult =>
-                    {
-                        Console.WriteLine(deviceCodeResult.Message);
-                        Console.WriteLine();
-                        
-                        // Extract the device code from the message
-                        var deviceCode = ExtractDeviceCode(deviceCodeResult.Message);
-                        var url = ExtractUrl(deviceCodeResult.Message);
-                        
-                        if (!string.IsNullOrEmpty(deviceCode))
-                        {
-                            // Copy device code to clipboard
-                            CopyToClipboard(deviceCode);
-                            Console.WriteLine($"✅ Device code '{deviceCode}' has been copied to your clipboard!");
-                        }
-                        
-                        if (!string.IsNullOrEmpty(url))
-                        {
-                            // Open browser automatically
-                            OpenBrowser(url);
-                            Console.WriteLine($"✅ Browser opened automatically to: {url}");
-                        }
-                        
-                        Console.WriteLine("📋 Simply paste the code (Ctrl+V) in the browser and sign in.");
-                        Console.WriteLine("⏳ Waiting for authentication...");
-                        
-                        return Task.FromResult(0);
-                    }).ExecuteAsync();
-                    Console.WriteLine("Device code authentication successful!");
+                    result = await PerformDeviceCodeFlowAsync(app);
                 }
             }
             catch (MsalUiRequiredException)
             {
                 Console.WriteLine("Silent authentication failed, starting device code flow...");
-                // Silent token acquisition failed, use device code flow
-                result = await app.AcquireTokenWithDeviceCode(Scopes, deviceCodeResult =>
-                {
-                    Console.WriteLine(deviceCodeResult.Message);
-                    Console.WriteLine();
-                    
-                    // Extract the device code from the message
-                    var deviceCode = ExtractDeviceCode(deviceCodeResult.Message);
-                    var url = ExtractUrl(deviceCodeResult.Message);
-                    
-                    if (!string.IsNullOrEmpty(deviceCode))
-                    {
-                        // Copy device code to clipboard
-                        CopyToClipboard(deviceCode);
-                        Console.WriteLine($"✅ Device code '{deviceCode}' has been copied to your clipboard!");
-                    }
-                    
-                    if (!string.IsNullOrEmpty(url))
-                    {
-                        // Open browser automatically
-                        OpenBrowser(url);
-                        Console.WriteLine($"✅ Browser opened automatically to: {url}");
-                    }
-                    
-                    Console.WriteLine("📋 Simply paste the code (Ctrl+V) in the browser and sign in.");
-                    Console.WriteLine("⏳ Waiting for authentication...");
-                    
-                    return Task.FromResult(0);
-                }).ExecuteAsync();
-                Console.WriteLine("Device code authentication successful!");
+                result = await PerformDeviceCodeFlowAsync(app);
             }
 
             if (result != null)
@@ -171,6 +129,42 @@ class Program
             }
             return null;
         }
+    }
+    
+    static async Task<AuthenticationResult> PerformDeviceCodeFlowAsync(IPublicClientApplication app)
+    {
+        var result = await app.AcquireTokenWithDeviceCode(Scopes, deviceCodeResult =>
+        {
+            Console.WriteLine(deviceCodeResult.Message);
+            Console.WriteLine();
+            
+            // Extract the device code from the message
+            var deviceCode = ExtractDeviceCode(deviceCodeResult.Message);
+            var url = ExtractUrl(deviceCodeResult.Message);
+            
+            if (!string.IsNullOrEmpty(deviceCode))
+            {
+                // Copy device code to clipboard
+                CopyToClipboard(deviceCode);
+                Console.WriteLine($"✅ Device code '{deviceCode}' has been copied to your clipboard!");
+            }
+            
+            if (!string.IsNullOrEmpty(url))
+            {
+                // Open browser automatically
+                OpenBrowser(url);
+                Console.WriteLine($"✅ Browser opened automatically to: {url}");
+            }
+            
+            Console.WriteLine("📋 Simply paste the code (Ctrl+V) in the browser and sign in.");
+            Console.WriteLine("💡 Tip: After first authentication, subsequent runs will use cached tokens!");
+            Console.WriteLine("⏳ Waiting for authentication...");
+            
+            return Task.FromResult(0);
+        }).ExecuteAsync();
+        
+        Console.WriteLine("Device code authentication successful!");
+        return result;
     }
     
     static async Task CheckPullRequestsAsync(VssConnection connection, string projectName, string repositoryName)
@@ -223,7 +217,7 @@ class Program
                 
                 foreach (var pr in approvedPullRequests)
                 {
-                    Console.WriteLine($"{pr.CreatedBy.DisplayName} - {pr.Title} - {GetPullRequestUrl(pr, projectName, repositoryName)}");
+                    Console.WriteLine($"{pr.CreatedBy.DisplayName} - {ShortenTitle(pr.Title)} - {GetPullRequestUrl(pr, projectName, repositoryName)}");
                 }
             }
             
@@ -240,7 +234,7 @@ class Program
             foreach (var pr in pendingPullRequests)
             {
                 Console.WriteLine($"ID: {pr.PullRequestId}");
-                Console.WriteLine($"Title: {pr.Title}");
+                Console.WriteLine($"Title: {ShortenTitle(pr.Title)}");
                 Console.WriteLine($"Author: {pr.CreatedBy.DisplayName}");
                 Console.WriteLine($"Status: {pr.Status}");
                 Console.WriteLine($"Created: {pr.CreationDate:yyyy-MM-dd HH:mm:ss}");
@@ -289,6 +283,30 @@ class Program
     static string GetPullRequestUrl(GitPullRequest pr, string projectName, string repositoryName)
     {
         return $"https://msazure.visualstudio.com/{projectName}/_git/{repositoryName}/pullrequest/{pr.PullRequestId}";
+    }
+    
+    static string ShortenTitle(string title)
+    {
+        if (string.IsNullOrEmpty(title))
+            return title;
+        
+        // Remove all dashes and replace with spaces
+        var cleaned = title.Replace("-", " ");
+        
+        // Remove trailing numbers (like issue numbers)
+        // Pattern: removes numbers at the end, optionally preceded by spaces or special chars
+        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"^\s*\d+\s*", "");
+        
+        // Remove extra whitespace
+        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", " ").Trim();
+        
+        // Truncate to 40 characters
+        if (cleaned.Length > 40)
+        {
+            cleaned = $"{cleaned[..37]}...";
+        }
+        
+        return cleaned;
     }
     
     static string ExtractDeviceCode(string message)
