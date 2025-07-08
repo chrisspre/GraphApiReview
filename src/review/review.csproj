@@ -12,13 +12,13 @@
     <PackageId>GraphApiReview</PackageId>
     <PackageVersion>1.0.0</PackageVersion>
     <Authors>Your Name</Authors>
-    <Description>gapir (Graph API review) - A CLI tool to check Azure DevOps pull requests and manage Microsoft Graph API settings</Description>
+    <Description>gapir (Graph API review) - A CLI tool to check Azure DevOps pull requests with optional URL shortening</Description>
     <Copyright>Copyright © 2025</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/yourusername/azdo-pr-checker</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>azure-devops;pull-requests;cli;tool;graph-api;microsoft-graph;gapir</PackageTags>
+    <PackageTags>azure-devops;pull-requests;cli;tool;gapir</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
