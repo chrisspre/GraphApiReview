@@ -14,7 +14,6 @@ A CLI tool to check Azure DevOps pull requests assigned to you and manage Micros
 - � **Pull Request Checker**: View PRs assigned to you for review
 - 🔗 **Shortened URLs**: Uses `http://aka.ms/gapir/{ID}` for clean, clickable URLs
 - 🔐 **Modern Authentication**: Brokered authentication (Windows Hello/PIN) with device code fallback
-- �️ **Microsoft Graph Integration**: Manage Microsoft Teams Baffino settings
 - � **Cross-platform**: Works on Windows, macOS, and Linux
 - 💾 **Token Caching**: Remembers your authentication for faster subsequent runs
 - 🧹 **Clean Titles**: Automatically cleans and shortens PR titles for better readability
