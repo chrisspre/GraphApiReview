@@ -1,4 +1,12 @@
-# gapir (Graph API Review)
+# ga## Features
+
+- 🔍 **Pull Request Checker**: View PRs assigned to you for review
+- 🔗 **Optional URL Shortening**: Use `--short-urls` flag for `http://aka.ms/gapir?id={ID}` format (supports query parameters)
+- 🔐 **Modern Authentication**: Brokered authentication (Windows Hello/PIN) with device code fallback
+- ⚙️ **Microsoft Graph Integration**: Manage Microsoft Teams Baffino settings
+- 🌐 **Cross-platform**: Works on Windows, macOS, and Linux
+- 💾 **Token Caching**: Remembers your authentication for faster subsequent runs
+- 🧹 **Clean Titles**: Automatically cleans and shortens PR titles for better readabilityh API Review)
 
 A CLI tool to check Azure DevOps pull requests assigned to you and manage Microsoft Graph API settings.
 
@@ -25,7 +33,28 @@ dotnet tool install --global AzureDevOpsPRChecker
 Run the tool from anywhere to check your Azure DevOps pull requests:
 
 ```bash
-apipr
+gapir
+```
+
+### Command Line Options
+
+- `--short-urls` - Use shortened URLs (e.g., `http://aka.ms/gapir?id=123456`) for better readability
+- `--full-urls` - Use complete URLs (default behavior)
+- `settings` - Manage Microsoft Teams Baffino settings
+
+Examples:
+```bash
+# Default behavior (full URLs)
+gapir
+
+# Use shortened URLs for cleaner output
+gapir --short-urls
+
+# Use complete URLs (explicit)
+gapir --full-urls
+
+# Manage settings
+gapir settings
 ```
 
 On first run, it will:
