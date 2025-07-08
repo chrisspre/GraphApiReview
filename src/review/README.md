@@ -1,12 +1,14 @@
-# Azure DevOps Pull Request Checker
+# gapir (Graph API Review)
 
-A CLI tool that helps you quickly check Azure DevOps pull requests assigned to you for review.
+A CLI tool to check Azure DevOps pull requests assigned to you and manage Microsoft Graph API settings.
 
 ## Features
 
-- 🔐 **Secure Authentication**: Uses Azure Device Code Flow with token caching
-- 📋 **Smart Lists**: Shows approved PRs (short format) and pending PRs (detailed format)
-- 🚀 **Great UX**: Auto-opens browser, copies device code to clipboard
+- � **Pull Request Checker**: View PRs assigned to you for review
+- 🔗 **Shortened URLs**: Uses `http://aka.ms/gapir/{ID}` for clean, clickable URLs
+- 🔐 **Modern Authentication**: Brokered authentication (Windows Hello/PIN) with device code fallback
+- �️ **Microsoft Graph Integration**: Manage Microsoft Teams Baffino settings
+- � **Cross-platform**: Works on Windows, macOS, and Linux
 - 💾 **Token Caching**: Remembers your authentication for faster subsequent runs
 - 🧹 **Clean Titles**: Automatically cleans and shortens PR titles for better readability
 
@@ -20,16 +22,16 @@ dotnet tool install --global AzureDevOpsPRChecker
 
 ## Usage
 
-Run the tool from anywhere:
+Run the tool from anywhere to check your Azure DevOps pull requests:
 
 ```bash
 apipr
 ```
 
 On first run, it will:
-1. Open your browser automatically
-2. Copy the device code to your clipboard
-3. Prompt you to sign in to Azure DevOps
+1. Try Windows Authentication Broker (Windows Hello/PIN/Biometrics) first
+2. Fall back to device code flow if brokered auth fails
+3. Auto-open browser and copy device code to clipboard (fallback mode)
 4. Cache your token for future runs
 
 ## Configuration
@@ -68,7 +70,8 @@ Reviewers:
 
 - .NET 9.0 or later
 - Access to Azure DevOps organization
-- Windows (for clipboard and browser auto-open features)
+- Windows (for brokered authentication and clipboard/browser features)
+- Windows 10 version 1903 or later (for optimal brokered authentication experience)
 
 ## Token Storage
 

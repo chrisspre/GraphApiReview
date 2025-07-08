@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Client;
 using Microsoft.Identity.Client;
+using Microsoft.Identity.Client.Broker;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -18,52 +19,75 @@ class Program
     {
         try
         {
-            // Azure DevOps organization URL
-            var organizationUrl = "https://msazure.visualstudio.com/";
-            
-            // Project and repository details
-            var projectName = "One";
-            var repositoryName = "AD-AggregatorService-Workloads";
-            
-            Console.WriteLine("Azure DevOps Pull Request Checker");
-            Console.WriteLine("==================================");
-            
-            // Authenticate using Visual Studio credentials or prompt for PAT
-            var connection = await AuthenticateAsync(organizationUrl);
-            
-            if (connection == null)
+            // Check for settings subcommand (as requested in instructions)
+            if (args.Length > 0 && args[0].ToLower() == "settings")
             {
-                Console.WriteLine("Authentication failed. Exiting...");
+                await HandleSettingsCommandAsync(args);
                 return;
             }
             
-            Console.WriteLine("Successfully authenticated!");
+            // Check for full-urls flag
+            bool useFullUrls = args.Contains("--full-urls");
             
-            // Get pull requests assigned to the current user
-            await CheckPullRequestsAsync(connection, projectName, repositoryName);
+            // Default PR checker functionality
+            await RunPRCheckerAsync(useFullUrls);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error: {ex.Message}");
         }
-        
     }
     
+    static async Task RunPRCheckerAsync(bool useFullUrls = false)
+    {
+        // Azure DevOps organization URL
+        var organizationUrl = "https://msazure.visualstudio.com/";
+        
+        // Project and repository details
+        var projectName = "One";
+        var repositoryName = "AD-AggregatorService-Workloads";
+        
+        Console.WriteLine("gapir (Graph API review) - Azure DevOps Pull Request Checker");
+        Console.WriteLine("===============================================================");
+        if (!useFullUrls)
+        {
+            Console.WriteLine("Note: URLs shown as shortened links (e.g., 'http://aka.ms/gapir/123456'). Use --full-urls for complete URLs.");
+            Console.WriteLine("Full URLs: https://msazure.visualstudio.com/One/_git/AD-AggregatorService-Workloads/pullrequest/{ID}");
+        }
+        Console.WriteLine();
+        
+        // Authenticate using Visual Studio credentials or prompt for PAT
+        var connection = await AuthenticateAsync(organizationUrl);
+        
+        if (connection == null)
+        {
+            Console.WriteLine("Authentication failed. Exiting...");
+            return;
+        }
+        
+        Console.WriteLine("Successfully authenticated!");
+        
+        // Get pull requests assigned to the current user
+        await CheckPullRequestsAsync(connection, projectName, repositoryName, useFullUrls);
+    }
+
     static async Task<VssConnection?> AuthenticateAsync(string organizationUrl)
     {
         try
         {
-            Console.WriteLine("Authenticating with Azure DevOps using Device Code Flow...");
+            Console.WriteLine("Authenticating with Azure DevOps...");
             
             // Create cache directory for better token persistence
             var cacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AzureDevOpsPRChecker");
             Directory.CreateDirectory(cacheDir);
             
-            // Create the MSAL client with token cache
+            // Create the MSAL client with brokered authentication support
+            var brokerOptions = new BrokerOptions(BrokerOptions.OperatingSystems.Windows);
             var app = PublicClientApplicationBuilder
                 .Create(ClientId)
                 .WithAuthority(Authority)
                 .WithRedirectUri("http://localhost")
+                .WithBroker(brokerOptions) // Enable brokered authentication (WAM)
                 .Build();
 
             // Configure token cache for better persistence
@@ -87,20 +111,20 @@ class Program
                     }
                     catch (MsalUiRequiredException)
                     {
-                        Console.WriteLine("⚠️  Cached token expired, starting device code flow...");
-                        result = await PerformDeviceCodeFlowAsync(app);
+                        Console.WriteLine("⚠️  Cached token expired, attempting interactive authentication...");
+                        result = await PerformInteractiveAuthenticationAsync(app);
                     }
                 }
                 else
                 {
-                    Console.WriteLine("No cached accounts found, starting device code flow...");
-                    result = await PerformDeviceCodeFlowAsync(app);
+                    Console.WriteLine("No cached accounts found, starting interactive authentication...");
+                    result = await PerformInteractiveAuthenticationAsync(app);
                 }
             }
             catch (MsalUiRequiredException)
             {
-                Console.WriteLine("Silent authentication failed, starting device code flow...");
-                result = await PerformDeviceCodeFlowAsync(app);
+                Console.WriteLine("Silent authentication failed, starting interactive authentication...");
+                result = await PerformInteractiveAuthenticationAsync(app);
             }
 
             if (result != null)
@@ -132,6 +156,50 @@ class Program
             return null;
         }
     }
+    
+    static async Task<AuthenticationResult> PerformInteractiveAuthenticationAsync(IPublicClientApplication app)
+    {
+        try
+        {
+            Console.WriteLine("🔐 Attempting brokered authentication (Windows Hello/PIN/Biometrics)...");
+            
+            // Try brokered authentication first (best UX)
+            var result = await app.AcquireTokenInteractive(Scopes)
+                .WithPrompt(Prompt.SelectAccount)
+                .WithParentActivityOrWindow(GetParentWindow())
+                .ExecuteAsync();
+                
+            Console.WriteLine("✅ Brokered authentication successful!");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️  Brokered authentication failed: {ex.Message}");
+            Console.WriteLine("📱 Falling back to device code flow...");
+            return await PerformDeviceCodeFlowAsync(app);
+        }
+    }
+    
+    static IntPtr GetParentWindow()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                // Try to get the console window handle
+                return GetConsoleWindow();
+            }
+            catch
+            {
+                // If that fails, return IntPtr.Zero (no parent window)
+                return IntPtr.Zero;
+            }
+        }
+        return IntPtr.Zero;
+    }
+    
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern IntPtr GetConsoleWindow();
     
     static async Task<AuthenticationResult> PerformDeviceCodeFlowAsync(IPublicClientApplication app)
     {
@@ -169,7 +237,7 @@ class Program
         return result;
     }
     
-    static async Task CheckPullRequestsAsync(VssConnection connection, string projectName, string repositoryName)
+    static async Task CheckPullRequestsAsync(VssConnection connection, string projectName, string repositoryName, bool useFullUrls)
     {
         try
         {
@@ -219,7 +287,8 @@ class Program
                 
                 foreach (var pr in approvedPullRequests)
                 {
-                    Console.WriteLine($"{pr.CreatedBy.DisplayName} - {ShortenTitle(pr.Title)} - {GetPullRequestUrl(pr, projectName, repositoryName)}");
+                    var url = useFullUrls ? GetFullPullRequestUrl(pr, projectName, repositoryName) : GetPullRequestUrl(pr, projectName, repositoryName);
+                    Console.WriteLine($"{pr.CreatedBy.DisplayName} - {ShortenTitle(pr.Title)} - {url}");
                 }
             }
             
@@ -240,7 +309,7 @@ class Program
                 Console.WriteLine($"Author: {pr.CreatedBy.DisplayName}");
                 Console.WriteLine($"Status: {pr.Status}");
                 Console.WriteLine($"Created: {pr.CreationDate:yyyy-MM-dd HH:mm:ss}");                
-                Console.WriteLine($"URL: {GetPullRequestUrl(pr, projectName, repositoryName)}");
+                Console.WriteLine($"URL: {(useFullUrls ? GetFullPullRequestUrl(pr, projectName, repositoryName) : GetPullRequestUrl(pr, projectName, repositoryName))}");
                 
                 // Check if there are any reviewers (filter out groups and automation accounts)
                 if (pr.Reviewers?.Any() == true)
@@ -283,6 +352,27 @@ class Program
     
     static string GetPullRequestUrl(GitPullRequest pr, string projectName, string repositoryName)
     {
+        // Use Microsoft's aka.ms service with parameter support for shortened URLs
+        // Setup required:
+        // 1. Go to https://aka.ms (Microsoft's URL shortener service)
+        // 2. Create a short URL: gapir -> https://msazure.visualstudio.com/One/_git/AD-AggregatorService-Workloads/pullrequest/
+        // 3. Configure the link to accept parameters (aka.ms supports path parameters)
+        // 4. This creates working short URLs: aka.ms/gapir/123456 -> full URL + 123456
+        // 5. Benefits: Official Microsoft service, supports parameters, reliable
+        
+        return $"http://aka.ms/gapir/{pr.PullRequestId}";
+        
+        // Alternative options if aka.ms doesn't work:
+        // return $"bit.ly/azdo-pr{pr.PullRequestId}";       // If using Bit.ly custom short links
+        // return $"tinyurl.com/azdo-pr{pr.PullRequestId}";  // If using TinyURL custom alias
+        
+        // Original full URL (commented for reference):
+        // return $"https://msazure.visualstudio.com/{projectName}/_git/{repositoryName}/pullrequest/{pr.PullRequestId}";
+    }
+    
+    static string GetFullPullRequestUrl(GitPullRequest pr, string projectName, string repositoryName)
+    {
+        // Keep the original method available for when full URLs are needed
         return $"https://msazure.visualstudio.com/{projectName}/_git/{repositoryName}/pullrequest/{pr.PullRequestId}";
     }
     
@@ -393,6 +483,217 @@ class Program
         {
             Console.WriteLine($"⚠️  Could not open browser automatically: {ex.Message}");
             Console.WriteLine($"Please manually open: {url}");
+        }
+    }
+    
+    static async Task HandleSettingsCommandAsync(string[] args)
+    {
+        if (args.Length < 2)
+        {
+            ShowSettingsHelp();
+            return;
+        }
+        
+        var subCommand = args[1].ToLower();
+        
+        switch (subCommand)
+        {
+            case "get":
+            case "read":
+                await GetBaffinoSettingsAsync();
+                break;
+            case "set":
+            case "write":
+                if (args.Length < 3)
+                {
+                    Console.WriteLine("Error: Missing settings JSON");
+                    Console.WriteLine("Usage: gapir settings set <json>");
+                    return;
+                }
+                await SetBaffinoSettingsAsync(args[2]);
+                break;
+            default:
+                ShowSettingsHelp();
+                break;
+        }
+    }
+    
+    static void ShowSettingsHelp()
+    {
+        Console.WriteLine("gapir (Graph API review) - Microsoft Teams Baffino Settings Management");
+        Console.WriteLine("======================================================================");
+        Console.WriteLine("Usage:");
+        Console.WriteLine("  gapir settings get                       - Read current settings");
+        Console.WriteLine("  gapir settings set <json>               - Set settings with JSON data");
+        Console.WriteLine("");
+        Console.WriteLine("Examples:");
+        Console.WriteLine("  gapir settings get");
+        Console.WriteLine("  gapir settings set '{\"timeAllocation\": 0.8}'");
+    }
+    
+    static async Task GetBaffinoSettingsAsync()
+    {
+        try
+        {
+            Console.WriteLine("Reading Microsoft Teams Baffino settings...");
+            
+            // Use the same authentication flow as Azure DevOps
+            var token = await GetMicrosoftGraphTokenAsync();
+            if (token == null)
+            {
+                Console.WriteLine("❌ Failed to get authentication token for Microsoft Graph");
+                return;
+            }
+            
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Authorization = 
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            
+            var response = await httpClient.GetAsync("https://graph.microsoft.com/v1.0/me/extensions/microsoft.teams.baffino");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                Console.WriteLine("✅ Settings retrieved successfully:");
+                Console.WriteLine(content);
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                Console.WriteLine("⚠️  No Baffino settings found. Settings may not be configured yet.");
+            }
+            else
+            {
+                Console.WriteLine($"❌ Error reading settings: {response.StatusCode} - {response.ReasonPhrase}");
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine(errorContent);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error executing request: {ex.Message}");
+        }
+    }
+    
+    static async Task SetBaffinoSettingsAsync(string jsonData)
+    {
+        try
+        {
+            Console.WriteLine("Setting Microsoft Teams Baffino settings...");
+            
+            // Use the same authentication flow as Azure DevOps
+            var token = await GetMicrosoftGraphTokenAsync();
+            if (token == null)
+            {
+                Console.WriteLine("❌ Failed to get authentication token for Microsoft Graph");
+                return;
+            }
+            
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Authorization = 
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            
+            var requestContent = new StringContent(jsonData, System.Text.Encoding.UTF8, "application/json");
+            var response = await httpClient.PostAsync("https://graph.microsoft.com/v1.0/me/extensions", requestContent);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("✅ Settings updated successfully");
+                var content = await response.Content.ReadAsStringAsync();
+                Console.WriteLine(content);
+            }
+            else
+            {
+                Console.WriteLine($"❌ Error setting settings: {response.StatusCode} - {response.ReasonPhrase}");
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine(errorContent);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error executing request: {ex.Message}");
+        }
+    }
+    
+    static async Task<string?> GetMicrosoftGraphTokenAsync()
+    {
+        try
+        {
+            // Create cache directory for better token persistence
+            var cacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AzureDevOpsPRChecker");
+            Directory.CreateDirectory(cacheDir);
+            
+            // Microsoft Graph scopes
+            var graphScopes = new[] { "https://graph.microsoft.com/User.Read", "https://graph.microsoft.com/User.ReadWrite" };
+            
+            // Create the MSAL client with brokered authentication support
+            var brokerOptions = new BrokerOptions(BrokerOptions.OperatingSystems.Windows);
+            var app = PublicClientApplicationBuilder
+                .Create(ClientId)
+                .WithAuthority(Authority)
+                .WithRedirectUri("http://localhost")
+                .WithBroker(brokerOptions)
+                .Build();
+
+            // Configure token cache for better persistence
+            var cacheHelper = new TokenCacheHelper(cacheDir);
+            cacheHelper.EnableSerialization(app.UserTokenCache);
+
+            AuthenticationResult? result = null;
+            
+            try
+            {
+                // Try to get token silently first (from cache)
+                var accounts = await app.GetAccountsAsync();
+                if (accounts.Any())
+                {
+                    try
+                    {
+                        result = await app.AcquireTokenSilent(graphScopes, accounts.FirstOrDefault())
+                            .ExecuteAsync();
+                    }
+                    catch (MsalUiRequiredException)
+                    {
+                        result = await PerformInteractiveAuthenticationForGraphAsync(app, graphScopes);
+                    }
+                }
+                else
+                {
+                    result = await PerformInteractiveAuthenticationForGraphAsync(app, graphScopes);
+                }
+            }
+            catch (MsalUiRequiredException)
+            {
+                result = await PerformInteractiveAuthenticationForGraphAsync(app, graphScopes);
+            }
+
+            return result?.AccessToken;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Authentication failed: {ex.Message}");
+            return null;
+        }
+    }
+    
+    static async Task<AuthenticationResult> PerformInteractiveAuthenticationForGraphAsync(IPublicClientApplication app, string[] scopes)
+    {
+        try
+        {
+            Console.WriteLine("🔐 Authenticating for Microsoft Graph access...");
+            
+            // Try brokered authentication first (best UX)
+            var result = await app.AcquireTokenInteractive(scopes)
+                .WithPrompt(Prompt.SelectAccount)
+                .WithParentActivityOrWindow(GetParentWindow())
+                .ExecuteAsync();
+                
+            Console.WriteLine("✅ Microsoft Graph authentication successful!");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️  Microsoft Graph authentication failed: {ex.Message}");
+            throw;
         }
     }
 }
