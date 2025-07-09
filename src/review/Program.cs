@@ -43,7 +43,7 @@ class Program
         var projectName = "One";
         var repositoryName = "AD-AggregatorService-Workloads";
         
-        Console.WriteLine("gapir (Graph API review) - Azure DevOps Pull Request Checker");
+        Console.WriteLine("gapir (Graph API Review) - Azure DevOps Pull Request Checker");
         Console.WriteLine("===============================================================");
         if (useUrlShortening)
         {
@@ -284,46 +284,21 @@ class Program
             {
                 Console.WriteLine($"\n✅ {approvedPullRequests.Count} PR(s) you have already approved:");
                 
-                // Calculate dynamic column widths based on content
-                const int maxAuthorWidth = 25;
-                const int maxTitleWidth = 45;
-                const int maxUrlWidth = 30;
-                const int minWidth = 10; // Minimum column width
+                // Prepare table data
+                var headers = new[] { "Author", "Title", "URL" };
+                var maxWidths = new[] { 25, 45, 30 }; // Maximum column widths
                 
-                var authorWidth = Math.Max(minWidth, Math.Min(maxAuthorWidth, 
-                    Math.Max("Author".Length, approvedPullRequests.Max(pr => pr.CreatedBy.DisplayName.Length))));
-                var titleWidth = Math.Max(minWidth, Math.Min(maxTitleWidth,
-                    Math.Max("Title".Length, approvedPullRequests.Max(pr => ShortenTitle(pr.Title).Length))));
-                
-                // Calculate URL width based on the URL format being used
-                var maxContentUrlLength = approvedPullRequests.Max(pr => 
-                {
-                    var url = useFullUrls ? GetFullPullRequestUrl(pr, projectName, repositoryName) : 
-                              useUrlShortening ? GetShortPullRequestUrl(pr, projectName, repositoryName) : 
-                              GetFullPullRequestUrl(pr, projectName, repositoryName);
-                    return url.Length;
-                });
-                var urlWidth = Math.Max(minWidth, Math.Min(maxUrlWidth, Math.Max("URL".Length, maxContentUrlLength)));
-                
-                var totalWidth = authorWidth + titleWidth + urlWidth + 4; // +4 for spacing
-                Console.WriteLine(new string('=', totalWidth));
-                
-                // Print table header
-                Console.WriteLine($"{"Author".PadRight(authorWidth)} {"Title".PadRight(titleWidth)} {"URL".PadRight(urlWidth)}");
-                Console.WriteLine(new string('-', totalWidth));
-                
+                var rows = new List<string[]>();
                 foreach (var pr in approvedPullRequests)
                 {
                     var url = useFullUrls ? GetFullPullRequestUrl(pr, projectName, repositoryName) : 
                               useUrlShortening ? GetShortPullRequestUrl(pr, projectName, repositoryName) : 
                               GetFullPullRequestUrl(pr, projectName, repositoryName);
                     
-                    var author = TruncateString(pr.CreatedBy.DisplayName, authorWidth - 2);
-                    var title = TruncateString(ShortenTitle(pr.Title), titleWidth - 2);
-                    var displayUrl = TruncateString(url, urlWidth - 2);
-                    
-                    Console.WriteLine($"{author.PadRight(authorWidth)} {title.PadRight(titleWidth)} {displayUrl.PadRight(urlWidth)}");
+                    rows.Add(new[] { pr.CreatedBy.DisplayName, ShortenTitle(pr.Title), url });
                 }
+                
+                PrintTable(headers, rows, maxWidths);
             }
             
             // Show detailed list of pending PRs
@@ -436,6 +411,72 @@ class Program
         }
         
         return cleaned;
+    }
+    static void PrintTable(string[] headers, IReadOnlyCollection<string[]> rows, int[] maxWidths)
+    {
+        if (headers == null || rows == null || maxWidths == null)
+            return;
+        
+        if (headers.Length != maxWidths.Length)
+            throw new ArgumentException("Headers and maxWidths arrays must have the same length.");
+        
+        // Calculate actual column widths based on content
+        var actualWidths = new int[headers.Length];
+        
+        // Start with header lengths
+        for (int i = 0; i < headers.Length; i++)
+        {
+            actualWidths[i] = Math.Min(headers[i].Length, maxWidths[i]);
+        }
+        
+        // Check content lengths
+        foreach (var row in rows)
+        {
+            if (row.Length != headers.Length)
+                continue; // Skip malformed rows
+                
+            for (int i = 0; i < row.Length && i < actualWidths.Length; i++)
+            {
+                var contentLength = row[i]?.Length ?? 0;
+                actualWidths[i] = Math.Max(actualWidths[i], Math.Min(contentLength, maxWidths[i]));
+            }
+        }
+        
+        // Print header
+        Console.WriteLine();
+        for (int i = 0; i < headers.Length; i++)
+        {
+            var header = TruncateString(headers[i], actualWidths[i]);
+            Console.Write($"{header.PadRight(actualWidths[i])}");
+            if (i < headers.Length - 1)
+                Console.Write(" | ");
+        }
+        Console.WriteLine();
+        
+        // Print separator
+        for (int i = 0; i < headers.Length; i++)
+        {
+            Console.Write(new string('-', actualWidths[i]));
+            if (i < headers.Length - 1)
+                Console.Write("-+-");
+        }
+        Console.WriteLine();
+        
+        // Print rows
+        foreach (var row in rows)
+        {
+            if (row.Length != headers.Length)
+                continue; // Skip malformed rows
+                
+            for (int i = 0; i < row.Length; i++)
+            {
+                var content = TruncateString(row[i] ?? "", actualWidths[i]);
+                Console.Write($"{content.PadRight(actualWidths[i])}");
+                if (i < row.Length - 1)
+                    Console.Write(" | ");
+            }
+            Console.WriteLine();
+        }
     }
     
     static string TruncateString(string text, int maxLength)
