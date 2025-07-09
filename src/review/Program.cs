@@ -283,11 +283,34 @@ class Program
             if (approvedPullRequests.Count > 0)
             {
                 Console.WriteLine($"\n✅ {approvedPullRequests.Count} PR(s) you have already approved:");
-                Console.WriteLine(new string('=', 100));
+                
+                // Calculate dynamic column widths based on content
+                const int maxAuthorWidth = 25;
+                const int maxTitleWidth = 45;
+                const int maxUrlWidth = 30;
+                const int minWidth = 10; // Minimum column width
+                
+                var authorWidth = Math.Max(minWidth, Math.Min(maxAuthorWidth, 
+                    Math.Max("Author".Length, approvedPullRequests.Max(pr => pr.CreatedBy.DisplayName.Length))));
+                var titleWidth = Math.Max(minWidth, Math.Min(maxTitleWidth,
+                    Math.Max("Title".Length, approvedPullRequests.Max(pr => ShortenTitle(pr.Title).Length))));
+                
+                // Calculate URL width based on the URL format being used
+                var maxContentUrlLength = approvedPullRequests.Max(pr => 
+                {
+                    var url = useFullUrls ? GetFullPullRequestUrl(pr, projectName, repositoryName) : 
+                              useUrlShortening ? GetShortPullRequestUrl(pr, projectName, repositoryName) : 
+                              GetFullPullRequestUrl(pr, projectName, repositoryName);
+                    return url.Length;
+                });
+                var urlWidth = Math.Max(minWidth, Math.Min(maxUrlWidth, Math.Max("URL".Length, maxContentUrlLength)));
+                
+                var totalWidth = authorWidth + titleWidth + urlWidth + 4; // +4 for spacing
+                Console.WriteLine(new string('=', totalWidth));
                 
                 // Print table header
-                Console.WriteLine($"{"Author",-25} {"Title",-45} {"URL",-30}");
-                Console.WriteLine(new string('-', 100));
+                Console.WriteLine($"{"Author".PadRight(authorWidth)} {"Title".PadRight(titleWidth)} {"URL".PadRight(urlWidth)}");
+                Console.WriteLine(new string('-', totalWidth));
                 
                 foreach (var pr in approvedPullRequests)
                 {
@@ -295,11 +318,11 @@ class Program
                               useUrlShortening ? GetShortPullRequestUrl(pr, projectName, repositoryName) : 
                               GetFullPullRequestUrl(pr, projectName, repositoryName);
                     
-                    var author = TruncateString(pr.CreatedBy.DisplayName, 23);
-                    var title = TruncateString(ShortenTitle(pr.Title), 43);
-                    var displayUrl = TruncateString(url, 28);
+                    var author = TruncateString(pr.CreatedBy.DisplayName, authorWidth - 2);
+                    var title = TruncateString(ShortenTitle(pr.Title), titleWidth - 2);
+                    var displayUrl = TruncateString(url, urlWidth - 2);
                     
-                    Console.WriteLine($"{author,-25} {title,-45} {displayUrl,-30}");
+                    Console.WriteLine($"{author.PadRight(authorWidth)} {title.PadRight(titleWidth)} {displayUrl.PadRight(urlWidth)}");
                 }
             }
             
