@@ -35,9 +35,9 @@ On first run, it will:
 ## Configuration
 
 Currently, the tool is configured for:
-- Organization: `https://msazure.visualstudio.com/`
-- Project: `One`
-- Repository: `AD-AggregatorService-Workloads`
+- Organization: `https://dev.azure.com/your-org/`
+- Project: `YourProject`
+- Repository: `YourRepository`
 
 To modify these settings, you'll need to update the source code and rebuild.
 
@@ -49,8 +49,8 @@ The tool shows two lists:
 ```
 Author             | Title                                    | URL
 -------------------+------------------------------------------+--------------------
-Robert Bezirganyan | EmailOTP Add Missing Behavior on Error   | https://msazure...
-Anton Vanco        | Add a restriction to enforce TrustedC... | https://msazure...
+John Smith         | Feature Add new validation logic        | https://example...
+Jane Doe           | Fix Update configuration handling       | https://example...
 ```
 
 ### ⏳ Pending PRs (Detailed Format)

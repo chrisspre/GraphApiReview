@@ -20,15 +20,15 @@ class Program
     static async Task RunPRCheckerAsync()
     {
         // Azure DevOps organization URL
-        const string organizationUrl = "https://msazure.visualstudio.com/";
+        const string organizationUrl = "https://dev.azure.com/your-org/";
 
         // Project and repository details
-        const string projectName = "One";
-        const string repositoryName = "AD-AggregatorService-Workloads";
+        const string projectName = "YourProject";
+        const string repositoryName = "YourRepository";
 
         Console.WriteLine("gapir (Graph API Review) - Azure DevOps Pull Request Checker");
         Console.WriteLine("===============================================================");
-        // Console.WriteLine("Full URLs: https://msazure.visualstudio.com/One/_git/AD-AggregatorService-Workloads/pullrequest/{ID}");
+        // Console.WriteLine("Full URLs: https://dev.azure.com/your-org/YourProject/_git/YourRepository/pullrequest/{ID}");
         Console.WriteLine();
 
         // Authenticate using Visual Studio credentials or prompt for PAT
@@ -169,7 +169,7 @@ class Program
 
     static string GetFullPullRequestUrl(GitPullRequest pr, string projectName, string repositoryName)
     {
-        return $"https://msazure.visualstudio.com/{projectName}/_git/{repositoryName}/pullrequest/{pr.PullRequestId}";
+        return $"https://dev.azure.com/your-org/{projectName}/_git/{repositoryName}/pullrequest/{pr.PullRequestId}";
     }
 
     static string ShortenTitle(string title)
