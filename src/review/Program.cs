@@ -286,7 +286,7 @@ class Program
                 
                 // Prepare table data
                 var headers = new[] { "Author", "Title", "URL" };
-                var maxWidths = new[] { 25, 45, 30 }; // Maximum column widths
+                var maxWidths = new[] { 25, 45, -1 }; // Maximum column widths, -1 means no limit for URLs
                 
                 var rows = new List<string[]>();
                 foreach (var pr in approvedPullRequests)
@@ -295,7 +295,7 @@ class Program
                               useUrlShortening ? GetShortPullRequestUrl(pr, projectName, repositoryName) : 
                               GetFullPullRequestUrl(pr, projectName, repositoryName);
                     
-                    rows.Add(new[] { pr.CreatedBy.DisplayName, ShortenTitle(pr.Title), url });
+                    rows.Add([pr.CreatedBy.DisplayName, ShortenTitle(pr.Title), url]);
                 }
                 
                 PrintTable(headers, rows, maxWidths);
@@ -412,6 +412,7 @@ class Program
         
         return cleaned;
     }
+
     static void PrintTable(string[] headers, IReadOnlyCollection<string[]> rows, int[] maxWidths)
     {
         if (headers == null || rows == null || maxWidths == null)
@@ -426,7 +427,7 @@ class Program
         // Start with header lengths
         for (int i = 0; i < headers.Length; i++)
         {
-            actualWidths[i] = Math.Min(headers[i].Length, maxWidths[i]);
+            actualWidths[i] = maxWidths[i] == -1 ? headers[i].Length : Math.Min(headers[i].Length, maxWidths[i]);
         }
         
         // Check content lengths
@@ -438,7 +439,15 @@ class Program
             for (int i = 0; i < row.Length && i < actualWidths.Length; i++)
             {
                 var contentLength = row[i]?.Length ?? 0;
-                actualWidths[i] = Math.Max(actualWidths[i], Math.Min(contentLength, maxWidths[i]));
+                if (maxWidths[i] == -1)
+                {
+                    // No limit for this column
+                    actualWidths[i] = Math.Max(actualWidths[i], contentLength);
+                }
+                else
+                {
+                    actualWidths[i] = Math.Max(actualWidths[i], Math.Min(contentLength, maxWidths[i]));
+                }
             }
         }
         
@@ -446,7 +455,7 @@ class Program
         Console.WriteLine();
         for (int i = 0; i < headers.Length; i++)
         {
-            var header = TruncateString(headers[i], actualWidths[i]);
+            var header = maxWidths[i] == -1 ? headers[i] : TruncateString(headers[i], actualWidths[i]);
             Console.Write($"{header.PadRight(actualWidths[i])}");
             if (i < headers.Length - 1)
                 Console.Write(" | ");
@@ -470,7 +479,7 @@ class Program
                 
             for (int i = 0; i < row.Length; i++)
             {
-                var content = TruncateString(row[i] ?? "", actualWidths[i]);
+                var content = maxWidths[i] == -1 ? (row[i] ?? "") : TruncateString(row[i] ?? "", actualWidths[i]);
                 Console.Write($"{content.PadRight(actualWidths[i])}");
                 if (i < row.Length - 1)
                     Console.Write(" | ");
