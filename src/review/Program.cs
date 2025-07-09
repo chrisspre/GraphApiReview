@@ -19,14 +19,8 @@ class Program
     {
         try
         {
-            // Check for full-urls flag
-            bool useFullUrls = args.Contains("--full-urls");
-            
-            // Check for URL shortening flag
-            bool useUrlShortening = args.Contains("--short-urls");
-            
             // PR checker functionality
-            await RunPRCheckerAsync(useFullUrls, useUrlShortening);
+            await RunPRCheckerAsync();
         }
         catch (Exception ex)
         {
@@ -34,7 +28,7 @@ class Program
         }
     }
     
-    static async Task RunPRCheckerAsync(bool useFullUrls = false, bool useUrlShortening = false)
+    static async Task RunPRCheckerAsync()
     {
         // Azure DevOps organization URL
         var organizationUrl = "https://msazure.visualstudio.com/";
@@ -45,14 +39,6 @@ class Program
         
         Console.WriteLine("gapir (Graph API Review) - Azure DevOps Pull Request Checker");
         Console.WriteLine("===============================================================");
-        if (useUrlShortening)
-        {
-            Console.WriteLine("Note: URLs shown as shortened links (e.g., 'http://aka.ms/gapir?id=123456'). Use --full-urls for complete URLs.");
-        }
-        else if (!useFullUrls)
-        {
-            Console.WriteLine("Note: URLs shown as standard links. Use --short-urls for shortened URLs or --full-urls for complete URLs.");
-        }
         Console.WriteLine("Full URLs: https://msazure.visualstudio.com/One/_git/AD-AggregatorService-Workloads/pullrequest/{ID}");
         Console.WriteLine();
         
@@ -68,7 +54,7 @@ class Program
         Console.WriteLine("Successfully authenticated!");
         
         // Get pull requests assigned to the current user
-        await CheckPullRequestsAsync(connection, projectName, repositoryName, useFullUrls, useUrlShortening);
+        await CheckPullRequestsAsync(connection, projectName, repositoryName);
     }
 
     static async Task<VssConnection?> AuthenticateAsync(string organizationUrl)
@@ -237,7 +223,7 @@ class Program
         return result;
     }
     
-    static async Task CheckPullRequestsAsync(VssConnection connection, string projectName, string repositoryName, bool useFullUrls, bool useUrlShortening)
+    static async Task CheckPullRequestsAsync(VssConnection connection, string projectName, string repositoryName)
     {
         try
         {
@@ -291,9 +277,7 @@ class Program
                 var rows = new List<string[]>();
                 foreach (var pr in approvedPullRequests)
                 {
-                    var url = useFullUrls ? GetFullPullRequestUrl(pr, projectName, repositoryName) : 
-                              useUrlShortening ? GetShortPullRequestUrl(pr, projectName, repositoryName) : 
-                              GetFullPullRequestUrl(pr, projectName, repositoryName);
+                    var url = GetFullPullRequestUrl(pr, projectName, repositoryName);
                     
                     rows.Add([pr.CreatedBy.DisplayName, ShortenTitle(pr.Title), url]);
                 }
@@ -318,7 +302,7 @@ class Program
                 Console.WriteLine($"Author: {pr.CreatedBy.DisplayName}");
                 Console.WriteLine($"Status: {pr.Status}");
                 Console.WriteLine($"Created: {pr.CreationDate:yyyy-MM-dd HH:mm:ss}");                
-                Console.WriteLine($"URL: {(useFullUrls ? GetFullPullRequestUrl(pr, projectName, repositoryName) : useUrlShortening ? GetShortPullRequestUrl(pr, projectName, repositoryName) : GetFullPullRequestUrl(pr, projectName, repositoryName))}");
+                Console.WriteLine($"URL: {GetFullPullRequestUrl(pr, projectName, repositoryName)}");
                 
                 // Check if there are any reviewers (filter out groups and automation accounts)
                 if (pr.Reviewers?.Any() == true)
@@ -359,33 +343,8 @@ class Program
         }
     }
     
-    static string GetShortPullRequestUrl(GitPullRequest pr, string projectName, string repositoryName)
-    {
-        // Use Microsoft's aka.ms service with query parameter support for shortened URLs
-        // Since aka.ms doesn't support path parameters like /gapir/123456, we use query parameters
-        // Setup required:
-        // 1. Go to https://aka.ms (Microsoft's URL shortener service)
-        // 2. Create a short URL: gapir -> https://msazure.visualstudio.com/One/_git/AD-AggregatorService-Workloads/pullrequest/
-        // 3. This creates working short URLs: aka.ms/gapir?id=123456 -> full URL + query parameter
-        // 4. Benefits: Official Microsoft service, supports query parameters, reliable
-        
-        return $"http://aka.ms/gapir?id={pr.PullRequestId}";
-        
-        // Alternative options if aka.ms doesn't work:
-        // return $"http://bit.ly/azdo-pr?id={pr.PullRequestId}";       // If using Bit.ly with query parameters
-        // return $"http://tinyurl.com/azdo-pr?id={pr.PullRequestId}";  // If using TinyURL with query parameters
-    }
-    
-    static string GetPullRequestUrl(GitPullRequest pr, string projectName, string repositoryName)
-    {
-        // This method is kept for backward compatibility but now just returns the full URL
-        // since URL shortening is now behind a feature flag
-        return GetFullPullRequestUrl(pr, projectName, repositoryName);
-    }
-    
     static string GetFullPullRequestUrl(GitPullRequest pr, string projectName, string repositoryName)
     {
-        // Keep the original method available for when full URLs are needed
         return $"https://msazure.visualstudio.com/{projectName}/_git/{repositoryName}/pullrequest/{pr.PullRequestId}";
     }
     
