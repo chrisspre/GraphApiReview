@@ -1,3 +1,5 @@
+namespace gapir;
+
 using Microsoft.Identity.Client;
 
 public class TokenCacheHelper(string cacheDir)
