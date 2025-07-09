@@ -283,14 +283,23 @@ class Program
             if (approvedPullRequests.Count > 0)
             {
                 Console.WriteLine($"\n✅ {approvedPullRequests.Count} PR(s) you have already approved:");
-                Console.WriteLine(new string('=', 60));
+                Console.WriteLine(new string('=', 100));
+                
+                // Print table header
+                Console.WriteLine($"{"Author",-25} {"Title",-45} {"URL",-30}");
+                Console.WriteLine(new string('-', 100));
                 
                 foreach (var pr in approvedPullRequests)
                 {
                     var url = useFullUrls ? GetFullPullRequestUrl(pr, projectName, repositoryName) : 
                               useUrlShortening ? GetShortPullRequestUrl(pr, projectName, repositoryName) : 
                               GetFullPullRequestUrl(pr, projectName, repositoryName);
-                    Console.WriteLine($"{pr.CreatedBy.DisplayName} - {ShortenTitle(pr.Title)} - {url}");
+                    
+                    var author = TruncateString(pr.CreatedBy.DisplayName, 23);
+                    var title = TruncateString(ShortenTitle(pr.Title), 43);
+                    var displayUrl = TruncateString(url, 28);
+                    
+                    Console.WriteLine($"{author,-25} {title,-45} {displayUrl,-30}");
                 }
             }
             
@@ -404,6 +413,17 @@ class Program
         }
         
         return cleaned;
+    }
+    
+    static string TruncateString(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text))
+            return string.Empty;
+            
+        if (text.Length <= maxLength)
+            return text;
+            
+        return $"{text[..(maxLength-3)]}...";
     }
     
     static string ExtractDeviceCode(string message)

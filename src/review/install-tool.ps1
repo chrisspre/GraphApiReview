@@ -95,6 +95,5 @@ Write-Host "gapir" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Examples:" -ForegroundColor White
 Write-Host "  gapir                    # Check pull requests" -ForegroundColor Cyan
-Write-Host "  gapir --full-urls       # Show full URLs" -ForegroundColor Cyan
-Write-Host "  gapir settings get      # Get Microsoft Graph settings" -ForegroundColor Cyan
-Write-Host "  gapir settings set {...} # Set Microsoft Graph settings" -ForegroundColor Cyan
+Write-Host "  gapir --full-urls        # Show full URLs" -ForegroundColor Cyan
+Write-Host "  gapir --short-urls       # Use shortened URLs" -ForegroundColor Cyan
