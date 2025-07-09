@@ -16,7 +16,7 @@
     <Copyright>Copyright © 2025</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryUrl>https://github.com/yourusername/azdo-pr-checker</RepositoryUrl>
+    <RepositoryUrl>https://github.com/yourusername/gapir</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>azure-devops;pull-requests;cli;tool;gapir</PackageTags>
   </PropertyGroup>
