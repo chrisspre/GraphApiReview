@@ -1,5 +1,11 @@
 namespace gapir;
 
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using Microsoft.Identity.Client;
+using Microsoft.Identity.Client.Broker;
+using Microsoft.VisualStudio.Services.Client;
+using Microsoft.VisualStudio.Services.WebApi;
 
 
 /// <summary>

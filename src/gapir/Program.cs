@@ -1,4 +1,4 @@
-﻿namespace review;
+﻿namespace gapir;
 
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -9,7 +9,6 @@ class Program
     {
         try
         {
-            // PR checker functionality
             await RunPRCheckerAsync();
         }
         catch (Exception ex)
@@ -21,11 +20,11 @@ class Program
     static async Task RunPRCheckerAsync()
     {
         // Azure DevOps organization URL
-        var organizationUrl = "https://msazure.visualstudio.com/";
+        const string organizationUrl = "https://msazure.visualstudio.com/";
 
         // Project and repository details
-        var projectName = "One";
-        var repositoryName = "AD-AggregatorService-Workloads";
+        const string projectName = "One";
+        const string repositoryName = "AD-AggregatorService-Workloads";
 
         Console.WriteLine("gapir (Graph API Review) - Azure DevOps Pull Request Checker");
         Console.WriteLine("===============================================================");
@@ -33,7 +32,7 @@ class Program
         Console.WriteLine();
 
         // Authenticate using Visual Studio credentials or prompt for PAT
-        var connection = await ConsoleAuth.AuthenticateAsync(organizationUrl);
+        var connection = await gapir.ConsoleAuth.AuthenticateAsync(organizationUrl);
 
         if (connection == null)
         {
