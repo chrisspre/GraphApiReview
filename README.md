@@ -15,16 +15,12 @@ A CLI tool to check Azure DevOps pull requests assigned to you for review.
 Install as a global .NET tool:
 
 ```bash
-dotnet tool install --global AzureDevOpsPRChecker
+dotnet tool install --global GraphApiReview
 ```
 
 ## Usage
 
 Run the tool from anywhere to check your Azure DevOps pull requests:
-
-```bash
-gapir
-```
 
 ```bash
 gapir
@@ -49,9 +45,12 @@ To modify these settings, you'll need to update the source code and rebuild.
 
 The tool shows two lists:
 
-### ✅ Approved PRs (Short Format)
+### ✅ Approved PRs (Table Format)
 ```
-Author - Short Title - URL
+Author             | Title                                    | URL
+-------------------+------------------------------------------+--------------------
+Robert Bezirganyan | EmailOTP Add Missing Behavior on Error   | https://msazure...
+Anton Vanco        | Add a restriction to enforce TrustedC... | https://msazure...
 ```
 
 ### ⏳ Pending PRs (Detailed Format)
@@ -61,12 +60,35 @@ Title: Clean Title
 Author: John Doe
 Status: Active
 Created: 2025-01-01 12:00:00
-Source: feature/branch -> main
 URL: https://...
 Reviewers:
   - Jane Smith: No vote
   - Bob Johnson: Approved
 ```
+
+## Development
+
+### Building from Source
+
+```bash
+git clone <repository-url>
+cd gapir
+dotnet build
+```
+
+### Installing Locally
+
+Use the provided PowerShell script:
+
+```bash
+.\src\gapir\install-tool.ps1
+```
+
+This script will:
+1. Build the project in Release mode
+2. Pack it as a NuGet package
+3. Uninstall any existing version
+4. Install the new version globally
 
 ## Requirements
 
@@ -78,10 +100,23 @@ Reviewers:
 ## Token Storage
 
 Authentication tokens are securely cached in:
-`%LocalAppData%\AzureDevOpsPRChecker\msalcache.bin`
+`%LocalAppData%\gapir\msalcache.bin`
+
+## Architecture
+
+The project is organized into:
+- `Program.cs` - Main application logic and PR checking
+- `ConsoleAuth.cs` - Reusable authentication module using MSAL
+- `TokenCacheHelper.cs` - Token persistence helper
+
+The `ConsoleAuth` class can be easily reused in other Azure DevOps tools.
 
 ## Uninstall
 
 ```bash
-dotnet tool uninstall --global AzureDevOpsPRChecker
+dotnet tool uninstall --global GraphApiReview
 ```
+
+## License
+
+MIT License - see LICENSE file for details.

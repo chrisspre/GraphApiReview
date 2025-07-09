@@ -30,7 +30,7 @@ public static class ConsoleAuth
             Console.WriteLine("Authenticating with Azure DevOps...");
 
             // Create cache directory for better token persistence
-            var cacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AzureDevOpsPRChecker");
+            var cacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "gapir");
             Directory.CreateDirectory(cacheDir);
 
             // Create the MSAL client with brokered authentication support

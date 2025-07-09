@@ -12,7 +12,7 @@
     <PackageId>GraphApiReview</PackageId>
     <PackageVersion>1.0.0</PackageVersion>
     <Authors>Your Name</Authors>
-    <Description>gapir (Graph API review) - A CLI tool to check Azure DevOps pull requests with optional URL shortening</Description>
+    <Description>gapir (Graph API review) - A CLI tool to check Azure DevOps pull requests assigned to you for review</Description>
     <Copyright>Copyright © 2025</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -31,7 +31,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
