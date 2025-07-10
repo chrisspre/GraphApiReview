@@ -1,22 +1,41 @@
-# gapir (Graph API Review)
+# ApiReview Tools
 
+A collection of CLI tools for Azure DevOps workflow optimization.
+
+## Projects
+
+### 🔍 gapir (Graph API Review)
 A CLI tool to check Azure DevOps pull requests assigned to you for review.
+
+### 🔗 kurz (URL Shortener Service)
+A web service for creating short URLs used by the gapir tool for cleaner output.
 
 ## Features
 
+### gapir Features
 - 🔍 **Pull Request Checker**: View PRs assigned to you for review
 - 🔐 **Modern Authentication**: Brokered authentication (Windows Hello/PIN) with device code fallback
 - 🌐 **Cross-platform**: Works on Windows, macOS, and Linux
 - 💾 **Token Caching**: Remembers your authentication for faster subsequent runs
 - 🧹 **Clean Titles**: Automatically cleans and shortens PR titles for better readability
+- 🔗 **Short URLs**: Integrates with kurz service for compact URL display
+
+### kurz Features
+- 🌐 **Web Service**: HTTP API for URL shortening
+- 🏃 **Fast Redirects**: High-performance redirect handling
+- 🔧 **Self-hostable**: Can be deployed as Windows service or web app
 
 ## Installation
 
+### gapir Installation
 Install as a global .NET tool:
 
 ```bash
 dotnet tool install --global GraphApiReview
 ```
+
+### kurz Installation
+See `src/kurz/README.md` for detailed installation instructions.
 
 ## Usage
 

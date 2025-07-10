@@ -11,12 +11,12 @@ public static class Log
 
     // Emoji constants - easy to switch back to colorful ones if needed
     // To use colorful emojis, change these values:
-    // private const string SUCCESS_EMOJI = "✅";   // Green check mark
-    // private const string ERROR_EMOJI = "❌";     // Red X mark  
-    // private const string WARNING_EMOJI = "⚠️";  // Yellow warning triangle
-    private const string SUCCESS_EMOJI = "✓";      // Simple check mark
-    private const string ERROR_EMOJI = "✗";        // Simple X mark
-    private const string WARNING_EMOJI = "!";      // Simple exclamation mark
+    private const string SUCCESS_EMOJI = "✅";   // Green check mark
+    private const string ERROR_EMOJI = "❌";     // Red X mark  
+    private const string WARNING_EMOJI = "⚠️";  // Yellow warning triangle
+    // private const string SUCCESS_EMOJI = "✓";      // Simple check mark
+    // private const string ERROR_EMOJI = "✗";        // Simple X mark
+    // private const string WARNING_EMOJI = "!";      // Simple exclamation mark
     
     private const string SUCCESS_TEXT = "[SUCCESS]";
     private const string ERROR_TEXT = "[ERROR]";

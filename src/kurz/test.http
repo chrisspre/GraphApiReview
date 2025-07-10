@@ -1,0 +1,21 @@
+
+
+
+### Pull Request Redirect (Supported)
+GET http://g.io/pr/12041652
+
+### Pull Request Redirect - No ID (goes to base URL)
+GET http://g.io/pr
+
+### Favicon Request (Returns 404 but doesn't show error message)
+GET http://g.io/favicon.ico
+
+### Unsupported Path - Should show error message
+GET http://g.io/google.com
+
+### Root Path - Should show error message
+GET http://g.io/
+
+### Another Unsupported Path - Should show error message
+GET http://g.io/search?q=test
+
