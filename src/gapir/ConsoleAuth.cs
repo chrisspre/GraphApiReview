@@ -22,12 +22,16 @@ public static class ConsoleAuth
     /// Authenticates with Azure DevOps and returns a VssConnection.
     /// </summary>
     /// <param name="organizationUrl">The Azure DevOps organization URL.</param>
+    /// <param name="verbose">Whether to show diagnostic messages during authentication.</param>
     /// <returns>A VssConnection if authentication succeeds, null otherwise.</returns>
-    public static async Task<VssConnection?> AuthenticateAsync(string organizationUrl)
+    public static async Task<VssConnection?> AuthenticateAsync(string organizationUrl, bool verbose = false)
     {
         try
         {
-            Console.WriteLine("Authenticating with Azure DevOps...");
+            if (verbose)
+            {
+                Console.WriteLine("Authenticating with Azure DevOps...");
+            }
 
             // Create cache directory for better token persistence
             var cacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "gapir");
@@ -54,48 +58,75 @@ public static class ConsoleAuth
                 var accounts = await app.GetAccountsAsync();
                 if (accounts.Any())
                 {
-                    Console.WriteLine("Found cached account, attempting silent authentication...");
+                    if (verbose)
+                    {
+                        Console.WriteLine("Found cached account, attempting silent authentication...");
+                    }
                     try
                     {
                         result = await app.AcquireTokenSilent(Scopes, accounts.FirstOrDefault())
                             .ExecuteAsync();
-                        Console.WriteLine("✅ Silent authentication successful using cached token!");
+                        if (verbose)
+                        {
+                            Console.WriteLine("✅ Silent authentication successful using cached token!");
+                        }
                     }
                     catch (MsalUiRequiredException)
                     {
-                        Console.WriteLine("⚠️  Cached token expired, attempting interactive authentication...");
-                        result = await PerformInteractiveAuthenticationAsync(app);
+                        if (verbose)
+                        {
+                            Console.WriteLine("⚠️  Cached token expired, attempting interactive authentication...");
+                        }
+                        result = await PerformInteractiveAuthenticationAsync(app, verbose);
                     }
                 }
                 else
                 {
-                    Console.WriteLine("No cached accounts found, starting interactive authentication...");
-                    result = await PerformInteractiveAuthenticationAsync(app);
+                    if (verbose)
+                    {
+                        Console.WriteLine("No cached accounts found, starting interactive authentication...");
+                    }
+                    result = await PerformInteractiveAuthenticationAsync(app, verbose);
                 }
             }
             catch (MsalUiRequiredException)
             {
-                Console.WriteLine("Silent authentication failed, starting interactive authentication...");
-                result = await PerformInteractiveAuthenticationAsync(app);
+                if (verbose)
+                {
+                    Console.WriteLine("Silent authentication failed, starting interactive authentication...");
+                }
+                result = await PerformInteractiveAuthenticationAsync(app, verbose);
             }
 
             if (result != null)
             {
-                Console.WriteLine("Creating VssConnection with access token...");
+                if (verbose)
+                {
+                    Console.WriteLine("Creating VssConnection with access token...");
+                }
                 // Create VssConnection with the access token
                 var token = new VssAadToken("Bearer", result.AccessToken);
                 var credentials = new VssAadCredential(token);
                 var connection = new VssConnection(new Uri(organizationUrl), credentials);
 
                 // Test the connection
-                Console.WriteLine("Testing connection...");
+                if (verbose)
+                {
+                    Console.WriteLine("Testing connection...");
+                }
                 await connection.ConnectAsync();
-                Console.WriteLine("Connection test successful!");
+                if (verbose)
+                {
+                    Console.WriteLine("Connection test successful!");
+                }
 
                 return connection;
             }
 
-            Console.WriteLine("Authentication result was null");
+            if (verbose)
+            {
+                Console.WriteLine("Authentication result was null");
+            }
             return null;
         }
         catch (Exception ex)
@@ -109,11 +140,14 @@ public static class ConsoleAuth
         }
     }
 
-    private static async Task<AuthenticationResult> PerformInteractiveAuthenticationAsync(IPublicClientApplication app)
+    private static async Task<AuthenticationResult> PerformInteractiveAuthenticationAsync(IPublicClientApplication app, bool verbose)
     {
         try
         {
-            Console.WriteLine("🔐 Attempting brokered authentication (Windows Hello/PIN/Biometrics)...");
+            if (verbose)
+            {
+                Console.WriteLine("🔐 Attempting brokered authentication (Windows Hello/PIN/Biometrics)...");
+            }
 
             // Try brokered authentication first (best UX)
             var result = await app.AcquireTokenInteractive(Scopes)
@@ -121,14 +155,20 @@ public static class ConsoleAuth
                 .WithParentActivityOrWindow(GetParentWindow())
                 .ExecuteAsync();
 
-            Console.WriteLine("✅ Brokered authentication successful!");
+            if (verbose)
+            {
+                Console.WriteLine("✅ Brokered authentication successful!");
+            }
             return result;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"⚠️  Brokered authentication failed: {ex.Message}");
-            Console.WriteLine("📱 Falling back to device code flow...");
-            return await PerformDeviceCodeFlowAsync(app);
+            if (verbose)
+            {
+                Console.WriteLine($"⚠️  Brokered authentication failed: {ex.Message}");
+                Console.WriteLine("📱 Falling back to device code flow...");
+            }
+            return await PerformDeviceCodeFlowAsync(app, verbose);
         }
     }
 
@@ -153,7 +193,7 @@ public static class ConsoleAuth
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     private static extern IntPtr GetConsoleWindow();
 
-    private static async Task<AuthenticationResult> PerformDeviceCodeFlowAsync(IPublicClientApplication app)
+    private static async Task<AuthenticationResult> PerformDeviceCodeFlowAsync(IPublicClientApplication app, bool verbose)
     {
         var result = await app.AcquireTokenWithDeviceCode(Scopes, deviceCodeResult =>
         {
@@ -167,25 +207,31 @@ public static class ConsoleAuth
             if (!string.IsNullOrEmpty(deviceCode))
             {
                 // Copy device code to clipboard
-                CopyToClipboard(deviceCode);
+                CopyToClipboard(deviceCode, verbose);
                 Console.WriteLine($"✅ Device code '{deviceCode}' has been copied to your clipboard!");
             }
 
             if (!string.IsNullOrEmpty(url))
             {
                 // Open browser automatically
-                OpenBrowser(url);
+                OpenBrowser(url, verbose);
                 Console.WriteLine($"✅ Browser opened automatically to: {url}");
             }
 
             Console.WriteLine("📋 Simply paste the code (Ctrl+V) in the browser and sign in.");
-            Console.WriteLine("💡 Tip: After first authentication, subsequent runs will use cached tokens!");
+            if (verbose)
+            {
+                Console.WriteLine("💡 Tip: After first authentication, subsequent runs will use cached tokens!");
+            }
             Console.WriteLine("⏳ Waiting for authentication...");
 
             return Task.FromResult(0);
         }).ExecuteAsync();
 
-        Console.WriteLine("Device code authentication successful!");
+        if (verbose)
+        {
+            Console.WriteLine("Device code authentication successful!");
+        }
         return result;
     }
 
@@ -214,7 +260,7 @@ public static class ConsoleAuth
         return message[urlStart..urlEnd];
     }
 
-    private static void CopyToClipboard(string text)
+    private static void CopyToClipboard(string text, bool verbose)
     {
         try
         {
@@ -242,12 +288,15 @@ public static class ConsoleAuth
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"⚠️  Could not copy to clipboard: {ex.Message}");
+            if (verbose)
+            {
+                Console.WriteLine($"⚠️  Could not copy to clipboard: {ex.Message}");
+            }
             Console.WriteLine($"Manual copy needed: {text}");
         }
     }
 
-    private static void OpenBrowser(string url)
+    private static void OpenBrowser(string url, bool verbose)
     {
         try
         {
@@ -270,7 +319,10 @@ public static class ConsoleAuth
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"⚠️  Could not open browser automatically: {ex.Message}");
+            if (verbose)
+            {
+                Console.WriteLine($"⚠️  Could not open browser automatically: {ex.Message}");
+            }
             Console.WriteLine($"Please manually open: {url}");
         }
     }

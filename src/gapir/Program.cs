@@ -9,7 +9,18 @@ class Program
     {
         try
         {
-            await RunPRCheckerAsync();
+            // Check for help
+            if (args.Contains("--help") || args.Contains("-h"))
+            {
+                ShowHelp();
+                return;
+            }
+
+            // Parse command line arguments
+            bool showApproved = args.Contains("--show-approved") || args.Contains("-a");
+            bool verbose = args.Contains("--verbose") || args.Contains("-v");
+            
+            await RunPRCheckerAsync(showApproved, verbose);
         }
         catch (Exception ex)
         {
@@ -17,22 +28,37 @@ class Program
         }
     }
 
-    static async Task RunPRCheckerAsync()
+    static void ShowHelp()
     {
-        // Azure DevOps organization URL
-        const string organizationUrl = "https://dev.azure.com/your-org/";
+        Console.WriteLine("gapir (Graph API Review) - Azure DevOps Pull Request Checker");
+        Console.WriteLine("===============================================================");
+        Console.WriteLine();
+        Console.WriteLine("Usage: gapir [options]");
+        Console.WriteLine();
+        Console.WriteLine("Options:");
+        Console.WriteLine("  -a, --show-approved    Show table of already approved PRs");
+        Console.WriteLine("  -v, --verbose          Show diagnostic messages during execution");
+        Console.WriteLine("  -h, --help             Show this help message");
+        Console.WriteLine();
+        Console.WriteLine("Description:");
+        Console.WriteLine("  Checks for pull requests assigned to you for review in Azure DevOps.");
+        Console.WriteLine("  By default, only shows pending PRs. Use --show-approved to also see");
+        Console.WriteLine("  a summary table of PRs you have already approved.");
+        Console.WriteLine("  Use --verbose to see authentication and operation details.");
+    }
 
-        // Project and repository details
-        const string projectName = "YourProject";
-        const string repositoryName = "YourRepository";
+    static async Task RunPRCheckerAsync(bool showApproved, bool verbose)
+    {
+        // Azure DevOps organization URL, Project and repository details
+        const string organizationUrl = "https://msazure.visualstudio.com/";
+        const string projectName = "One";
+        const string repositoryName = "AD-AggregatorService-Workloads";
 
         Console.WriteLine("gapir (Graph API Review) - Azure DevOps Pull Request Checker");
         Console.WriteLine("===============================================================");
-        // Console.WriteLine("Full URLs: https://dev.azure.com/your-org/YourProject/_git/YourRepository/pullrequest/{ID}");
         Console.WriteLine();
 
-        // Authenticate using Visual Studio credentials or prompt for PAT
-        var connection = await gapir.ConsoleAuth.AuthenticateAsync(organizationUrl);
+        var connection = await ConsoleAuth.AuthenticateAsync(organizationUrl, verbose);
 
         if (connection == null)
         {
@@ -40,13 +66,16 @@ class Program
             return;
         }
 
-        Console.WriteLine("Successfully authenticated!");
+        if (verbose)
+        {
+            Console.WriteLine("Successfully authenticated!");
+        }
 
         // Get pull requests assigned to the current user
-        await CheckPullRequestsAsync(connection, projectName, repositoryName);
+        await CheckPullRequestsAsync(connection, projectName, repositoryName, showApproved, verbose);
     }
 
-    static async Task CheckPullRequestsAsync(VssConnection connection, string projectName, string repositoryName)
+    static async Task CheckPullRequestsAsync(VssConnection connection, string projectName, string repositoryName, bool showApproved, bool verbose)
     {
         try
         {
@@ -56,7 +85,10 @@ class Program
             // Get current user identity
             var currentUser = connection.AuthorizedIdentity;
 
-            Console.WriteLine($"Checking pull requests for user: {currentUser.DisplayName}");
+            if (verbose)
+            {
+                Console.WriteLine($"Checking pull requests for user: {currentUser.DisplayName}");
+            }
 
             // Get repository
             var repository = await gitClient.GetRepositoryAsync(projectName, repositoryName);
@@ -88,8 +120,8 @@ class Program
                     pendingPullRequests.Add(pr);
             }
 
-            // Show short list of approved PRs
-            if (approvedPullRequests.Count > 0)
+            // Show short list of approved PRs (only if requested)
+            if (showApproved && approvedPullRequests.Count > 0)
             {
                 Console.WriteLine($"\n✅ {approvedPullRequests.Count} PR(s) you have already approved:");
 
@@ -169,7 +201,8 @@ class Program
 
     static string GetFullPullRequestUrl(GitPullRequest pr, string projectName, string repositoryName)
     {
-        return $"https://dev.azure.com/your-org/{projectName}/_git/{repositoryName}/pullrequest/{pr.PullRequestId}";
+        // return $"https://dev.azure.com/your-org/{projectName}/_git/{repositoryName}/pullrequest/{pr.PullRequestId}";
+        return $"http://g.io/pr/{pr.PullRequestId}";
     }
 
     static string ShortenTitle(string title)
