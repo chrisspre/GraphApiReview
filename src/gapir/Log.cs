@@ -9,6 +9,11 @@ public static class Log
     private static bool _isVerbose = false;
 
     /// <summary>
+    /// Gets whether verbose logging is currently enabled.
+    /// </summary>
+    public static bool IsVerbose => _isVerbose;
+
+    /// <summary>
     /// Initialize the logger with the specified verbosity level.
     /// Must be called before using any logging methods.
     /// </summary>
@@ -19,8 +24,7 @@ public static class Log
     }
 
     /// <summary>
-    /// Logs an informational message if verbose mode is enabled.
-    /// Uses short-circuiting for efficient conditional execution.
+    /// Logs an informational message when verbose mode is enabled.
     /// </summary>
     /// <param name="message">The message to log</param>
     public static void Information(string message)
@@ -44,28 +48,14 @@ public static class Log
     }
 
     /// <summary>
-    /// Logs an error message if verbose mode is enabled.
-    /// Uses short-circuiting for efficient conditional execution.
+    /// Logs an error message when verbose mode is enabled. Prepends the message with a ❌ prefix.
     /// </summary>
     /// <param name="message">The error message to log</param>
     public static void Error(string message)
     {
         if (_isVerbose)
         {
-            Console.WriteLine(message);
-        }
-    }
-
-    /// <summary>
-    /// Logs a warning message if verbose mode is enabled.
-    /// Uses short-circuiting for efficient conditional execution.
-    /// </summary>
-    /// <param name="message">The warning message to log</param>
-    public static void Warning(string message)
-    {
-        if (_isVerbose)
-        {
-            Console.WriteLine(message);
+            Console.WriteLine($"❌ {message}");
         }
     }
 
@@ -73,16 +63,11 @@ public static class Log
     /// Logs a warning message when verbose mode is enabled. Prepends the message with a ⚠️ prefix.
     /// </summary>
     /// <param name="message">The warning message to log</param>
-    public static void Warn(string message)
+    public static void Warning(string message)
     {
         if (_isVerbose)
         {
             Console.WriteLine($"⚠️  {message}");
         }
     }
-
-    /// <summary>
-    /// Gets whether verbose logging is currently enabled.
-    /// </summary>
-    public static bool IsVerbose => _isVerbose;
 }

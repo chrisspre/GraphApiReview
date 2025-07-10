@@ -63,7 +63,7 @@ public static class ConsoleAuth
                     }
                     catch (MsalUiRequiredException)
                     {
-                        Log.Warn("Cached token expired, attempting interactive authentication...");
+                        Log.Warning("Cached token expired, attempting interactive authentication...");
                         result = await PerformInteractiveAuthenticationAsync(app);
                     }
                 }
@@ -126,7 +126,7 @@ public static class ConsoleAuth
         }
         catch (Exception ex)
         {
-            Log.Warn($"Brokered authentication failed: {ex.Message}");
+            Log.Warning($"Brokered authentication failed: {ex.Message}");
             Log.Information("📱 Falling back to device code flow...");
             return await PerformDeviceCodeFlowAsync(app);
         }
@@ -242,7 +242,7 @@ public static class ConsoleAuth
         }
         catch (Exception ex)
         {
-            Log.Warn($"Could not copy to clipboard: {ex.Message}");
+            Log.Warning($"Could not copy to clipboard: {ex.Message}");
             Console.WriteLine($"Manual copy needed: {text}");
         }
     }
@@ -270,7 +270,7 @@ public static class ConsoleAuth
         }
         catch (Exception ex)
         {
-            Log.Warn($"Could not open browser automatically: {ex.Message}");
+            Log.Warning($"Could not open browser automatically: {ex.Message}");
             Console.WriteLine($"Please manually open: {url}");
         }
     }

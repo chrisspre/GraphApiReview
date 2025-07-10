@@ -23,7 +23,7 @@ public class TokenCacheHelper(string cacheDir)
             }
             catch (Exception ex)
             {
-                Log.Warn($"Error reading token cache: {ex.Message}");
+                Log.Warning($"Error reading token cache: {ex.Message}");
             }
         }
     }
@@ -40,7 +40,7 @@ public class TokenCacheHelper(string cacheDir)
             }
             catch (Exception ex)
             {
-                Log.Warn($"Error writing token cache: {ex.Message}");
+                Log.Warning($"Error writing token cache: {ex.Message}");
             }
         }
     }
