@@ -23,7 +23,7 @@ public class TokenCacheHelper(string cacheDir)
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️  Error reading token cache: {ex.Message}");
+                Log.Warn($"Error reading token cache: {ex.Message}");
             }
         }
     }
@@ -36,11 +36,11 @@ public class TokenCacheHelper(string cacheDir)
             {
                 var data = args.TokenCache.SerializeMsalV3();
                 File.WriteAllBytes(_cacheFilePath, data);
-                Console.WriteLine("✅ Token cache updated for faster future authentication!");
+                Log.Success("Token cache updated for faster future authentication!");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️  Error writing token cache: {ex.Message}");
+                Log.Warn($"Error writing token cache: {ex.Message}");
             }
         }
     }

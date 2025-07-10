@@ -18,8 +18,11 @@ class Program
             bool verbose = args.Contains("--verbose") || args.Contains("-v");
             bool useFullUrls = args.Contains("--full-urls") || args.Contains("-f");
             
+            // Initialize the logger with verbosity setting
+            Log.Initialize(verbose);
+            
             // Create and run the checker
-            var checker = new PullRequestChecker(showApproved, verbose, !useFullUrls);
+            var checker = new PullRequestChecker(showApproved, !useFullUrls);
             await checker.RunAsync();
         }
         catch (Exception ex)

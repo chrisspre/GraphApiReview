@@ -3,10 +3,9 @@ namespace gapir;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 
-public class PullRequestChecker(bool showApproved, bool verbose, bool useShortUrls = true)
+public class PullRequestChecker(bool showApproved, bool useShortUrls = true)
 {
     private readonly bool _showApproved = showApproved;
-    private readonly bool _verbose = verbose;
     private readonly bool _useShortUrls = useShortUrls;
 
     // Azure DevOps organization URL, Project and repository details
@@ -20,7 +19,7 @@ public class PullRequestChecker(bool showApproved, bool verbose, bool useShortUr
         Console.WriteLine("===============================================================");
         Console.WriteLine();
 
-        var connection = await ConsoleAuth.AuthenticateAsync(OrganizationUrl, _verbose);
+        var connection = await ConsoleAuth.AuthenticateAsync(OrganizationUrl);
 
         if (connection == null)
         {
@@ -28,10 +27,7 @@ public class PullRequestChecker(bool showApproved, bool verbose, bool useShortUr
             return;
         }
 
-        if (_verbose)
-        {
-            Console.WriteLine("Successfully authenticated!");
-        }
+        Log.Information("Successfully authenticated!");
 
         // Get pull requests assigned to the current user
         await CheckPullRequestsAsync(connection);
@@ -47,10 +43,7 @@ public class PullRequestChecker(bool showApproved, bool verbose, bool useShortUr
             // Get current user identity
             var currentUser = connection.AuthorizedIdentity;
 
-            if (_verbose)
-            {
-                Console.WriteLine($"Checking pull requests for user: {currentUser.DisplayName}");
-            }
+            Log.Information($"Checking pull requests for user: {currentUser.DisplayName}");
 
             // Get repository
             var repository = await gitClient.GetRepositoryAsync(ProjectName, RepositoryName);
