@@ -7,6 +7,20 @@ namespace gapir;
 public static class Log
 {
     private static bool _isVerbose = false;
+    private static bool _useEmoji = true;
+
+    // Emoji constants - easy to switch back to colorful ones if needed
+    // To use colorful emojis, change these values:
+    // private const string SUCCESS_EMOJI = "✅";   // Green check mark
+    // private const string ERROR_EMOJI = "❌";     // Red X mark  
+    // private const string WARNING_EMOJI = "⚠️";  // Yellow warning triangle
+    private const string SUCCESS_EMOJI = "✓";      // Simple check mark
+    private const string ERROR_EMOJI = "✗";        // Simple X mark
+    private const string WARNING_EMOJI = "!";      // Simple exclamation mark
+    
+    private const string SUCCESS_TEXT = "[SUCCESS]";
+    private const string ERROR_TEXT = "[ERROR]";
+    private const string WARNING_TEXT = "[WARNING]";
 
     /// <summary>
     /// Gets whether verbose logging is currently enabled.
@@ -21,6 +35,49 @@ public static class Log
     public static void Initialize(bool verbose)
     {
         _isVerbose = verbose;
+        
+        // Ensure console uses UTF-8 encoding for emoji support
+        try
+        {
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            Console.InputEncoding = System.Text.Encoding.UTF8;
+        }
+        catch
+        {
+            // Ignore encoding errors, fallback to no emojis
+        }
+        
+        _useEmoji = DetectEmojiSupport();
+    }
+
+    /// <summary>
+    /// Detects if the current terminal supports emoji display.
+    /// </summary>
+    private static bool DetectEmojiSupport()
+    {
+        // Check if we're in VS Code terminal (generally has good emoji support)
+        var termProgram = Environment.GetEnvironmentVariable("TERM_PROGRAM");
+        if (termProgram == "vscode")
+        {
+            return true;
+        }
+
+        // Check for Windows Terminal
+        var wtSession = Environment.GetEnvironmentVariable("WT_SESSION");
+        if (!string.IsNullOrEmpty(wtSession))
+        {
+            return true; // Windows Terminal should support emojis with proper font
+        }
+
+        // Check for modern Windows 10/11 console
+        var osVersion = Environment.OSVersion;
+        if (osVersion.Platform == PlatformID.Win32NT && osVersion.Version.Major >= 10)
+        {
+            return true; // Modern Windows should support emojis
+        }
+
+        // For other terminals, disable emojis by default to avoid display issues
+        return false;
     }
 
     /// <summary>
@@ -36,38 +93,41 @@ public static class Log
     }
 
     /// <summary>
-    /// Logs a success message when verbose mode is enabled. Prepends the message with a ✅ prefix.
+    /// Logs a success message when verbose mode is enabled. Prepends the message with a ✓ prefix.
     /// </summary>
     /// <param name="message">The message to log</param>
     public static void Success(string message)
     {
         if (_isVerbose)
         {
-            Console.WriteLine($"✅ {message}");
+            var prefix = _useEmoji ? SUCCESS_EMOJI : SUCCESS_TEXT;
+            Console.WriteLine($"{prefix} {message}");
         }
     }
 
     /// <summary>
-    /// Logs an error message when verbose mode is enabled. Prepends the message with a ❌ prefix.
+    /// Logs an error message when verbose mode is enabled. Prepends the message with a ✗ prefix.
     /// </summary>
     /// <param name="message">The error message to log</param>
     public static void Error(string message)
     {
         if (_isVerbose)
         {
-            Console.WriteLine($"❌ {message}");
+            var prefix = _useEmoji ? ERROR_EMOJI : ERROR_TEXT;
+            Console.WriteLine($"{prefix} {message}");
         }
     }
 
     /// <summary>
-    /// Logs a warning message when verbose mode is enabled. Prepends the message with a ⚠️ prefix.
+    /// Logs a warning message when verbose mode is enabled. Prepends the message with a ! prefix.
     /// </summary>
     /// <param name="message">The warning message to log</param>
     public static void Warning(string message)
     {
         if (_isVerbose)
         {
-            Console.WriteLine($"⚠️  {message}");
+            var prefix = _useEmoji ? WARNING_EMOJI : WARNING_TEXT;
+            Console.WriteLine($"{prefix} {message}");
         }
     }
 }
