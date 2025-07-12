@@ -17,12 +17,13 @@ class Program
             bool showApproved = args.Contains("--show-approved") || args.Contains("-a");
             bool verbose = args.Contains("--verbose") || args.Contains("-v");
             bool useFullUrls = args.Contains("--full-urls") || args.Contains("-f");
+            bool showDetailedTiming = args.Contains("--detailed-timing") || args.Contains("-t");
             
             // Initialize the logger with verbosity setting
             Log.Initialize(verbose);
             
             // Create and run the checker
-            var checker = new PullRequestChecker(showApproved, !useFullUrls);
+            var checker = new PullRequestChecker(showApproved, !useFullUrls, showDetailedTiming);
             await checker.RunAsync();
         }
         catch (Exception ex)
@@ -40,6 +41,7 @@ class Program
         Console.WriteLine();
         Console.WriteLine("Options:");
         Console.WriteLine("  -a, --show-approved    Show table of already approved PRs");
+        Console.WriteLine("  -t, --detailed-timing  Show detailed age columns (MyAge, AllAge) - slower due to API calls");
         Console.WriteLine("  -v, --verbose          Show diagnostic messages during execution");
         Console.WriteLine("  -f, --full-urls        Use full Azure DevOps URLs instead of short g URLs");
         Console.WriteLine("  -h, --help             Show this help message");
@@ -48,6 +50,7 @@ class Program
         Console.WriteLine("  Checks for pull requests assigned to you for review in Azure DevOps.");
         Console.WriteLine("  By default, only shows pending PRs. Use --show-approved to also see");
         Console.WriteLine("  a summary table of PRs you have already approved.");
+        Console.WriteLine("  Use --detailed-timing to add MyAge and AllAge columns (requires additional API calls).");
         Console.WriteLine("  Use --verbose to see authentication and operation details.");
         Console.WriteLine("  By default, uses short g URLs. Use --full-urls for complete Azure DevOps URLs.");
     }

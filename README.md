@@ -54,7 +54,7 @@ dotnet tool install --global GraphApiReview
 ```
 
 ### kurz Installation
-See `src/kurz/README.md` for detailed installation instructions.
+See [kurz README.md](src/kurz/README.md) for detailed installation instructions.
 
 ## Usage
 
