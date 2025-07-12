@@ -41,7 +41,7 @@ class Program
         Console.WriteLine("Options:");
         Console.WriteLine("  -a, --show-approved    Show table of already approved PRs");
         Console.WriteLine("  -v, --verbose          Show diagnostic messages during execution");
-        Console.WriteLine("  -f, --full-urls        Use full Azure DevOps URLs instead of short g.io URLs");
+        Console.WriteLine("  -f, --full-urls        Use full Azure DevOps URLs instead of short g URLs");
         Console.WriteLine("  -h, --help             Show this help message");
         Console.WriteLine();
         Console.WriteLine("Description:");
@@ -49,6 +49,6 @@ class Program
         Console.WriteLine("  By default, only shows pending PRs. Use --show-approved to also see");
         Console.WriteLine("  a summary table of PRs you have already approved.");
         Console.WriteLine("  Use --verbose to see authentication and operation details.");
-        Console.WriteLine("  By default, uses short g.io URLs. Use --full-urls for complete Azure DevOps URLs.");
+        Console.WriteLine("  By default, uses short g URLs. Use --full-urls for complete Azure DevOps URLs.");
     }
 }

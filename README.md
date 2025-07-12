@@ -8,7 +8,7 @@ A collection of CLI tools for Azure DevOps workflow optimization.
 A CLI tool to check Azure DevOps pull requests assigned to you for review.
 
 ### 🔗 kurz (URL Shortener Service)
-A web service for creating short URLs used by the gapir tool for cleaner output.
+A web service for creating short URLs used by the gapir tool for cleaner output. Features Base62 encoding for compact PR URLs.
 
 ## Features
 
@@ -18,12 +18,15 @@ A web service for creating short URLs used by the gapir tool for cleaner output.
 - 🌐 **Cross-platform**: Works on Windows, macOS, and Linux
 - 💾 **Token Caching**: Remembers your authentication for faster subsequent runs
 - 🧹 **Clean Titles**: Automatically cleans and shortens PR titles for better readability
-- 🔗 **Short URLs**: Integrates with kurz service for compact URL display
+- 🔗 **Short URLs**: Integrates with kurz service for compact URL display using Base62 encoding
 
 ### kurz Features
 - 🌐 **Web Service**: HTTP API for URL shortening
+- 🔢 **Base62 Encoding**: Compact PR URLs using Base62 encoding (e.g., w8t8c instead of 12041652)
+- 🔍 **Smart Detection**: Automatically detects Base62 vs decimal PR IDs
 - 🏃 **Fast Redirects**: High-performance redirect handling
 - 🔧 **Self-hostable**: Can be deployed as Windows service or web app
+- 📍 **Custom Domain**: Uses short 'g' domain for minimal URL length
 
 ## Installation
 

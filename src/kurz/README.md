@@ -1,14 +1,16 @@
 # Kurz - URL Redirect Service
 
-A lightweight, extensible ASP.NET Core minimal API that provides URL redirection services with support for custom short domains.
+A lightweight, extensible ASP.NET Core minimal API that provides URL redirection services with support for custom short domains and Base62 encoding.
 
 ## Features
 
 - Lightweight ASP.NET Core minimal API
+- Base62 encoding/decoding for compact PR URLs
+- Automatic detection of Base62 vs decimal PR IDs
 - Extensible route mapping via Dictionary configuration
 - Windows Service support with auto-start capability
 - 308 Permanent Redirect for better SEO and caching
-- Custom domain support (e.g., g.io)
+- Custom domain support (e.g., g)
 - Clean error handling for unsupported paths
 - Favicon handling for better browser experience
 - Automatic hosts file management via PowerShell script
@@ -18,9 +20,18 @@ A lightweight, extensible ASP.NET Core minimal API that provides URL redirection
 The service listens on `http://localhost:80` and supports configurable routes defined in the route mapping dictionary.
 
 **Current configured routes:**
-- `http://localhost/pr/12041652` → redirects to configured pull request URL
+- `http://localhost/pr/OwAc` → redirects to pull request URL (Base62 encoded ID)
+- `http://localhost/pr/12041652` → redirects to pull request URL (decimal ID)
 - `http://localhost/pr/` → redirects to the base pull request URL
 - `http://localhost/anything-else` → shows "Only /pr/* routes are supported" message
+
+## Base62 Encoding
+
+The service automatically detects whether a PR ID is in Base62 or decimal format:
+- **Base62**: Uses characters 0-9, a-z, A-Z for compact URLs (e.g., `OwAc` = 12041652)
+- **Decimal**: Standard numeric format (e.g., `12041652`)
+
+Both formats are accepted and will redirect to the same pull request.
 
 ## Running Locally
 
@@ -58,10 +69,10 @@ The installation script automatically adds the custom domain, but you can also d
 
 **Run as Administrator:**
 ```powershell
-Add-Content -Path "$env:SystemRoot\System32\drivers\etc\hosts" -Value "127.0.0.1 g.io" -Force
+Add-Content -Path "$env:SystemRoot\System32\drivers\etc\hosts" -Value "127.0.0.1 g" -Force
 ```
 
-Then access via: `http://g.io/pr/{id}`
+Then access via: `http://g/pr/{id}` (where {id} can be Base62 or decimal)
 
 ## Configuration
 
@@ -87,6 +98,7 @@ var routeMappings = new Dictionary<string, string>
 
 ## Examples
 
-- `http://g.io/pr/12041652` → redirects to the configured pull request URL with ID 12041652
-- `http://g.io/pr/` → redirects to the base pull request URL
-- `http://g.io/` → "Only /pr/* routes are supported. Example: /pr/12041652"
+- `http://g/pr/OwAc` → redirects to pull request URL with ID 12041652 (Base62 decoded)
+- `http://g/pr/12041652` → redirects to pull request URL with ID 12041652 (decimal)
+- `http://g/pr/` → redirects to the base pull request URL  
+- `http://g/` → "Only /pr/* routes are supported. Example: /pr/12041652"

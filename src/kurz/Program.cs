@@ -1,4 +1,7 @@
 using Microsoft.Extensions.Hosting.WindowsServices;
+using Kurz.Utilities;
+
+namespace Kurz;
 
 internal class Program
 {
@@ -29,16 +32,59 @@ internal class Program
             var routeKey = route.Key;
             var baseUrl = route.Value;
             
-            app.MapGet($"/{routeKey}/{{*path}}", (string? path, ILogger<Program> logger) =>
+            // Special handling for PR routes with Base62/decimal detection
+            if (routeKey == "pr")
             {
-                logger.LogInformation("{RouteType} redirect processed for path: {Path}", routeKey, path ?? "empty");
+                app.MapGet($"/{routeKey}/{{id}}", (string id, ILogger<Program> logger) =>
+                {
+                    logger.LogInformation("PR redirect processed for id: {Id}", id);
 
-                string redirectUrl = string.IsNullOrEmpty(path) ? baseUrl : baseUrl + path;
-                
-                logger.LogInformation("Redirecting to: {RedirectUrl}", redirectUrl);
+                    string prId = id;
+                    
+                    // Detect if the ID is Base62 or decimal and convert accordingly
+                    if (Base62.IsValidBase62(id) && !Base62.IsDecimal(id))
+                    {
+                        try
+                        {
+                            long decodedId = Base62.Decode(id);
+                            prId = decodedId.ToString();
+                            logger.LogInformation("Decoded Base62 id {Base62Id} to decimal {DecimalId}", id, prId);
+                        }
+                        catch (ArgumentException ex)
+                        {
+                            logger.LogWarning("Failed to decode Base62 id {Id}: {Error}", id, ex.Message);
+                            // If decoding fails, use the original id as-is
+                        }
+                    }
+                    else if (Base62.IsDecimal(id))
+                    {
+                        logger.LogInformation("Using decimal id {Id} directly", id);
+                    }
+                    else
+                    {
+                        logger.LogWarning("Invalid id format {Id}, using as-is", id);
+                    }
 
-                return Results.Redirect(redirectUrl, permanent: true);
-            });
+                    string redirectUrl = baseUrl + prId;
+                    logger.LogInformation("Redirecting to: {RedirectUrl}", redirectUrl);
+
+                    return Results.Redirect(redirectUrl, permanent: true);
+                });
+            }
+            else
+            {
+                // Handle other routes with the original logic
+                app.MapGet($"/{routeKey}/{{*path}}", (string? path, ILogger<Program> logger) =>
+                {
+                    logger.LogInformation("{RouteType} redirect processed for path: {Path}", routeKey, path ?? "empty");
+
+                    string redirectUrl = string.IsNullOrEmpty(path) ? baseUrl : baseUrl + path;
+                    
+                    logger.LogInformation("Redirecting to: {RedirectUrl}", redirectUrl);
+
+                    return Results.Redirect(redirectUrl, permanent: true);
+                });
+            }
         }
 
         // Handle favicon.ico requests

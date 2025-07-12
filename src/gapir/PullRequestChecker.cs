@@ -2,6 +2,7 @@ namespace gapir;
 
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
+using gapir.Utilities;
 
 public class PullRequestChecker(bool showApproved, bool useShortUrls = true)
 {
@@ -158,7 +159,9 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true)
     {
         if (useShortUrls)
         {
-            return $"http://g.io/pr/{pr.PullRequestId}";
+            // Use Base62 encoding for shorter URLs
+            string base62Id = Base62.Encode(pr.PullRequestId);
+            return $"http://g/pr/{base62Id}";
         }
         else
         {

@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\gapir\gapir.csproj" />
+    <ProjectReference Include="..\..\src\gapir\gapir.csproj" />
   </ItemGroup>
 
 </Project>

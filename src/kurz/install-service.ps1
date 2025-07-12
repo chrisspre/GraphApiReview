@@ -10,7 +10,7 @@ $ServiceDisplayName = "Kurz URL Redirect Service"
 $ServiceDescription = "A lightweight extensible URL redirect service"
 $ExePath = "$PWD\bin\Debug\net8.0\kurz.exe"
 $HostsFile = "$env:SystemRoot\System32\drivers\etc\hosts"
-$HostEntry = "127.0.0.1    g.io"
+$HostEntry = "127.0.0.1    g"
 
 function Install-KurzService {
     Write-Host "Installing Kurz URL Redirect Service..." -ForegroundColor Green
@@ -56,7 +56,7 @@ function Install-KurzService {
         Write-Host "✅ Service installed and started successfully!" -ForegroundColor Green
         Write-Host "Service Name: $ServiceName" -ForegroundColor Yellow
         Write-Host "Service will start automatically after OS startup" -ForegroundColor Yellow
-        Write-Host "Access your service at: http://g.io/pr/{id} (or other configured routes)" -ForegroundColor Yellow
+        Write-Host "Access your service at: http://g/pr/{id} (or other configured routes)" -ForegroundColor Yellow
     } else {
         Write-Host "❌ Failed to create service!" -ForegroundColor Red
     }
@@ -84,12 +84,12 @@ function Show-ServiceStatus {
         # Check hosts file entry
         try {
             $hostsContent = Get-Content $HostsFile -ErrorAction Stop
-            $existingEntry = $hostsContent | Where-Object { $_ -match "^\s*127\.0\.0\.1\s+g\.io\s*$" }
+            $existingEntry = $hostsContent | Where-Object { $_ -match "^\s*127\.0\.0\.1\s+g\s*$" }
             
             if ($existingEntry) {
-                Write-Host "Hosts File: ✅ g.io entry present" -ForegroundColor Green
+                Write-Host "Hosts File: ✅ g entry present" -ForegroundColor Green
             } else {
-                Write-Host "Hosts File: ❌ g.io entry missing" -ForegroundColor Red
+                Write-Host "Hosts File: ❌ g entry missing" -ForegroundColor Red
                 Write-Host "Run '.\Install-Service.ps1 install' to add it" -ForegroundColor Yellow
             }
         } catch {
@@ -101,7 +101,7 @@ function Show-ServiceStatus {
 }
 
 function Update-HostsFile {
-    Write-Host "Checking hosts file for g.io entry..." -ForegroundColor Cyan
+    Write-Host "Checking hosts file for g entry..." -ForegroundColor Cyan
     
     # Check if hosts file exists and is readable
     if (-not (Test-Path $HostsFile)) {
@@ -112,23 +112,23 @@ function Update-HostsFile {
     try {
         $hostsContent = Get-Content $HostsFile -ErrorAction Stop
         
-        # Check if g.io entry already exists
-        $existingEntry = $hostsContent | Where-Object { $_ -match "^\s*127\.0\.0\.1\s+g\.io\s*$" }
+        # Check if g entry already exists
+        $existingEntry = $hostsContent | Where-Object { $_ -match "^\s*127\.0\.0\.1\s+g\s*$" }
         
         if ($existingEntry) {
-            Write-Host "✅ g.io entry already exists in hosts file" -ForegroundColor Green
+            Write-Host "✅ g entry already exists in hosts file" -ForegroundColor Green
             return $true
         }
         
         # Add the entry
-        Write-Host "Adding g.io entry to hosts file..." -ForegroundColor Yellow
+        Write-Host "Adding g entry to hosts file..." -ForegroundColor Yellow
         Add-Content -Path $HostsFile -Value $HostEntry -ErrorAction Stop
-        Write-Host "✅ g.io entry added to hosts file" -ForegroundColor Green
+        Write-Host "✅ g entry added to hosts file" -ForegroundColor Green
         return $true
         
     } catch {
         Write-Host "❌ Failed to update hosts file: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "You may need to manually add '127.0.0.1    g.io' to $HostsFile" -ForegroundColor Yellow
+        Write-Host "You may need to manually add '127.0.0.1    g' to $HostsFile" -ForegroundColor Yellow
         return $false
     }
 }
