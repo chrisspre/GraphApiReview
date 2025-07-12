@@ -82,11 +82,12 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
             {
                 Console.WriteLine($"\n✅ {approvedPullRequests.Count} PR(s) you have already approved:");
                 Console.WriteLine("Reason why PR is not completed: ");
-                Console.WriteLine("    REJ=Rejected, WFA=Waiting For Author, PAP=Pending Approvals, POL=Policy/Build Issues");
+                Console.WriteLine("    REJ=Rejected, WFA=Waiting For Author, POL=Policy/Build Issues");
+                Console.WriteLine("    PAP=Pending API Reviewer Approval, PAO=Pending Other Approvals");
                 
                 if (_showDetailedTiming)
                 {
-                    Console.WriteLine("Age columns: MyAge=Days since your approval, AllAge=Days since all required approvals (- if not all approved)");
+                    Console.WriteLine("Age column: Age=Days since your approval");
                 }
 
                 // Prepare table data - adjust headers based on detailed timing flag
@@ -95,8 +96,8 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
                 
                 if (_showDetailedTiming)
                 {
-                    headers = new[] { "Author", "Title", "Why", "MyAge", "AllAge", "URL" };
-                    maxWidths = new[] { 20, 30, 3, 5, 6, -1 }; // Adjusted widths for additional columns
+                    headers = new[] { "Author", "Title", "Why", "Age", "URL" };
+                    maxWidths = new[] { 20, 30, 3, 5, -1 }; // Adjusted widths for single age column
                 }
                 else
                 {
@@ -112,10 +113,9 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
 
                     if (_showDetailedTiming)
                     {
-                        var myApprovalAge = await GetMyApprovalAge(gitClient, pr, currentUser.Id);
-                        var allApprovalAge = await GetAllApprovalsAge(gitClient, pr);
+                        var age = FormatTimeDifferenceDays(DateTime.UtcNow - pr.CreationDate);
                         
-                        rows.Add([pr.CreatedBy.DisplayName, ShortenTitle(pr.Title), reason, myApprovalAge, allApprovalAge, url]);
+                        rows.Add([pr.CreatedBy.DisplayName, ShortenTitle(pr.Title), reason, age, url]);
                     }
                     else
                     {
@@ -392,8 +392,28 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
     {
         try
         {
-            // Check if there are any reviewers and get human reviewers only
-            var humanReviewers = pr.Reviewers?.Where(r =>
+            // Check if there are any reviewers and get all reviewers
+            var allReviewers = pr.Reviewers?.ToList() ?? new List<IdentityRefWithVote>();
+            
+            // Check for rejections first (highest priority) - from any reviewer
+            var rejectedCount = allReviewers.Count(r => r.Vote == -10);
+            if (rejectedCount > 0)
+                return "REJ"; // Rejected
+
+            // Check for waiting for author - from any reviewer
+            var waitingForAuthorCount = allReviewers.Count(r => r.Vote == -5);
+            if (waitingForAuthorCount > 0)
+                return "WFA"; // Waiting For Author
+
+            // Identify API reviewers by checking if they're part of the API reviewers group
+            // Since we can't easily get group membership via API in this context,
+            // we'll use a heuristic: if the reviewer's unique name or display name suggests they're API reviewers
+            var apiReviewers = allReviewers.Where(r => 
+                IsApiReviewer(r.UniqueName, r.DisplayName)).ToList();
+            
+            // Get non-API human reviewers (excluding groups and automation)
+            var nonApiReviewers = allReviewers.Where(r => 
+                !IsApiReviewer(r.UniqueName, r.DisplayName) &&
                 !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
                 !r.DisplayName.StartsWith($"[{ProjectName}]") &&
                 !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
@@ -401,28 +421,44 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
                 !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase)
             ).ToList();
 
-            if (humanReviewers?.Any() == true)
+            // Check API reviewers approval status (need at least 2 approved)
+            var apiApprovedCount = apiReviewers.Count(r => r.Vote >= 5);
+            var apiRequiredCount = 2; // Policy requires at least 2 API reviewers
+
+            // Check non-API reviewers approval status  
+            var nonApiApprovedCount = nonApiReviewers.Count(r => r.Vote >= 5);
+            var nonApiTotalCount = nonApiReviewers.Count;
+
+            // If we don't have enough API approvals yet
+            if (apiReviewers.Count > 0 && apiApprovedCount < apiRequiredCount)
+                return "PAP"; // Pending API Approvals
+
+            // If API approvals are satisfied but non-API reviewers haven't all approved
+            if (apiApprovedCount >= apiRequiredCount && nonApiTotalCount > 0 && nonApiApprovedCount < nonApiTotalCount)
+                return "PAO"; // Pending Other Approvals
+
+            // If no specific API reviewers found, use general logic
+            if (apiReviewers.Count == 0)
             {
-                // Check for rejections first (highest priority)
-                var rejectedCount = humanReviewers.Count(r => r.Vote == -10);
-                if (rejectedCount > 0)
-                    return "REJ"; // Rejected
-
-                // Check for waiting for author
-                var waitingForAuthorCount = humanReviewers.Count(r => r.Vote == -5);
-                if (waitingForAuthorCount > 0)
-                    return "WFA"; // Waiting For Author
-
-                // Check approval ratio
-                var approvedCount = humanReviewers.Count(r => r.Vote >= 5); // 5+ = approved
-                var totalReviewers = humanReviewers.Count;
+                var totalApproved = allReviewers.Count(r => r.Vote >= 5 && 
+                    !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
+                    !r.DisplayName.StartsWith($"[{ProjectName}]") &&
+                    !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
+                    !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
+                    !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase));
                 
-                if (approvedCount < totalReviewers)
-                    return "PAP"; // Pending Approvals
+                var totalRequired = allReviewers.Count(r => 
+                    !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
+                    !r.DisplayName.StartsWith($"[{ProjectName}]") &&
+                    !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
+                    !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
+                    !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase));
+                
+                if (totalApproved < totalRequired)
+                    return "PAP"; // Pending Approvals (general)
             }
 
-            // Check for merge conflicts (this would need additional API calls to be certain)
-            // For now, we'll assume if none of the above, it might be a build or policy issue
+            // If we get here, approvals are likely satisfied but there might be policy/build issues
             return "POL"; // Policy/Build issues (could be build failure, branch policy, etc.)
         }
         catch
@@ -431,119 +467,39 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
         }
     }
 
-    private static async Task<string> GetMyApprovalAge(GitHttpClient gitClient, GitPullRequest pr, Guid currentUserId)
+    private static bool IsApiReviewer(string uniqueName, string displayName)
     {
-        try
+        // Heuristic to identify API reviewers
+        // This would be better with actual group membership, but serves as a fallback
+        
+        // Check if the unique name contains patterns that suggest API reviewer membership
+        if (!string.IsNullOrEmpty(uniqueName))
         {
-            if (!currentUserId.Equals(Guid.Empty))
-            {
-                // Get PR timeline to find when current user approved
-                var prThreads = await gitClient.GetThreadsAsync(pr.Repository.Id, pr.PullRequestId);
-                
-                // Look through threads for vote changes by current user
-                DateTime? approvalDate = null;
-                
-                foreach (var thread in prThreads)
-                {
-                    if (thread.Comments?.Any() == true)
-                    {
-                        foreach (var comment in thread.Comments)
-                        {
-                            // Check if this comment represents an approval vote by current user
-                            if (comment.Author?.Id.Equals(currentUserId) == true && 
-                                comment.CommentType == CommentType.System &&
-                                comment.Content?.Contains("approved", StringComparison.OrdinalIgnoreCase) == true)
-                            {
-                                if (approvalDate == null || comment.PublishedDate > approvalDate)
-                                {
-                                    approvalDate = comment.PublishedDate;
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                if (approvalDate.HasValue)
-                {
-                    var timeDiff = DateTime.UtcNow - approvalDate.Value;
-                    return FormatTimeDifferenceDays(timeDiff);
-                }
-            }
+            // Look for known API reviewer email patterns or names
+            var lowerUniqueName = uniqueName.ToLowerInvariant();
             
-            // Fallback to PR creation date if we can't find specific approval date
-            var fallbackDiff = DateTime.UtcNow - pr.CreationDate;
-            return FormatTimeDifferenceDays(fallbackDiff);
+            // Add known patterns here - you would need to update this based on actual team members
+            // For now, we'll use a conservative approach
+            if (lowerUniqueName.Contains("apireview") || 
+                lowerUniqueName.Contains("api-review") ||
+                lowerUniqueName.Contains("scim"))
+            {
+                return true;
+            }
         }
-        catch
-        {
-            return "?";
-        }
-    }
 
-    private static async Task<string> GetAllApprovalsAge(GitHttpClient gitClient, GitPullRequest pr)
-    {
-        try
+        // Check display name patterns
+        if (!string.IsNullOrEmpty(displayName))
         {
-            // Check if all required human reviewers have approved
-            var humanReviewers = pr.Reviewers?.Where(r =>
-                !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
-                !r.DisplayName.StartsWith($"[{ProjectName}]") &&
-                !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
-                !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
-                !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase)
-            ).ToList();
-            
-            if (humanReviewers?.Any() != true)
+            var lowerDisplayName = displayName.ToLowerInvariant();
+            if (lowerDisplayName.Contains("api review") || 
+                lowerDisplayName.Contains("scim"))
             {
-                return "-";
+                return true;
             }
-            
-            var approvedCount = humanReviewers.Count(r => r.Vote >= 5);
-            var totalRequired = humanReviewers.Count;
-            
-            if (approvedCount < totalRequired)
-            {
-                return "-"; // Not all approved yet
-            }
-            
-            // Get PR timeline to find when the last required approval happened
-            var prThreads = await gitClient.GetThreadsAsync(pr.Repository.Id, pr.PullRequestId);
-            
-            DateTime? lastApprovalDate = null;
-            
-            foreach (var thread in prThreads)
-            {
-                if (thread.Comments?.Any() == true)
-                {
-                    foreach (var comment in thread.Comments)
-                    {
-                        // Check if this comment represents an approval vote
-                        if (comment.CommentType == CommentType.System &&
-                            comment.Content?.Contains("approved", StringComparison.OrdinalIgnoreCase) == true)
-                        {
-                            if (lastApprovalDate == null || comment.PublishedDate > lastApprovalDate)
-                            {
-                                lastApprovalDate = comment.PublishedDate;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (lastApprovalDate.HasValue)
-            {
-                var timeDiff = DateTime.UtcNow - lastApprovalDate.Value;
-                return FormatTimeDifferenceDays(timeDiff);
-            }
-            
-            // Fallback to PR creation date
-            var fallbackDiff = DateTime.UtcNow - pr.CreationDate;
-            return FormatTimeDifferenceDays(fallbackDiff);
         }
-        catch
-        {
-            return "?";
-        }
+
+        return false;
     }
 
     private static string FormatTimeDifferenceDays(TimeSpan timeDiff)
