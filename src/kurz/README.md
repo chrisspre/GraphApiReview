@@ -1,6 +1,32 @@
 # Kurz - URL Redirect Service
 
-A lightweight, extensible ASP.NET Core minimal API that provides URL redirection services with support for custom short domains and Base62 encoding.
+A lightweig## Windows Service Installation
+
+For production use, install as a Windows service that starts automatically:
+
+**Run PowerShell as Administrator:**
+```powershell
+.\Install-Service.ps1
+```
+
+This will:
+- Build the project in Release mode
+- Copy service files to `C:\Program Files\Kurz\`
+- Add g to your hosts file automatically
+- Install and start the Windows service
+- Configure auto-start after OS restart
+
+**Service management:**
+```powershell
+.\Install-Service.ps1 status      # Check service status
+.\Install-Service.ps1 uninstall   # Remove the service and files
+```
+
+**Installation Details:**
+- **Service Location**: `C:\Program Files\Kurz\`
+- **Service Name**: `KurzUrlRedirectService`
+- **Startup Type**: Automatic
+- **User Account**: Local SystemET Core minimal API that provides URL redirection services with support for custom short domains and Base62 encoding.
 
 ## Features
 

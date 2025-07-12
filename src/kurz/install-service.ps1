@@ -8,7 +8,8 @@ param(
 $ServiceName = "KurzUrlRedirectService"
 $ServiceDisplayName = "Kurz URL Redirect Service"
 $ServiceDescription = "A lightweight extensible URL redirect service"
-$ExePath = "$PWD\bin\Debug\net8.0\kurz.exe"
+$InstallPath = "$env:ProgramFiles\Kurz"
+$ExePath = "$InstallPath\kurz.exe"
 $HostsFile = "$env:SystemRoot\System32\drivers\etc\hosts"
 $HostEntry = "127.0.0.1    g"
 
@@ -39,7 +40,25 @@ function Install-KurzService {
         exit 1
     }
     
-    $ExePath = "$PWD\bin\Release\net8.0\kurz.exe"
+    # Create installation directory
+    Write-Host "Creating installation directory..." -ForegroundColor Cyan
+    if (-not (Test-Path $InstallPath)) {
+        New-Item -ItemType Directory -Path $InstallPath -Force | Out-Null
+        Write-Host "✅ Created directory: $InstallPath" -ForegroundColor Green
+    }
+    
+    # Copy service files to installation directory
+    Write-Host "Copying service files to $InstallPath..." -ForegroundColor Cyan
+    $SourcePath = "$PWD\bin\Release\net8.0"
+    
+    if (-not (Test-Path $SourcePath)) {
+        Write-Host "❌ Build output not found at $SourcePath" -ForegroundColor Red
+        exit 1
+    }
+    
+    # Copy all files from the build output
+    Copy-Item -Path "$SourcePath\*" -Destination $InstallPath -Recurse -Force
+    Write-Host "✅ Service files copied successfully" -ForegroundColor Green
     
     # Create the service
     Write-Host "Creating Windows Service..." -ForegroundColor Cyan
@@ -65,13 +84,28 @@ function Install-KurzService {
 function Uninstall-KurzService {
     Write-Host "Uninstalling Kurz URL Redirect Service..." -ForegroundColor Yellow
     
+    # Stop and remove service
     $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
     if ($existingService) {
+        Write-Host "Stopping service..." -ForegroundColor Cyan
         Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+        Write-Host "Removing service..." -ForegroundColor Cyan
         sc.exe delete $ServiceName
         Write-Host "✅ Service uninstalled successfully!" -ForegroundColor Green
     } else {
         Write-Host "Service not found." -ForegroundColor Yellow
+    }
+    
+    # Remove installation directory
+    if (Test-Path $InstallPath) {
+        Write-Host "Removing installation directory..." -ForegroundColor Cyan
+        try {
+            Remove-Item -Path $InstallPath -Recurse -Force
+            Write-Host "✅ Installation directory removed: $InstallPath" -ForegroundColor Green
+        } catch {
+            Write-Host "⚠️  Failed to remove installation directory: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "You may need to manually remove: $InstallPath" -ForegroundColor Yellow
+        }
     }
 }
 
@@ -80,6 +114,14 @@ function Show-ServiceStatus {
     if ($service) {
         Write-Host "Service Status: $($service.Status)" -ForegroundColor Cyan
         Write-Host "Service Start Type: $($service.StartType)" -ForegroundColor Cyan
+        Write-Host "Installation Path: $InstallPath" -ForegroundColor Cyan
+        
+        # Check if installation files exist
+        if (Test-Path $ExePath) {
+            Write-Host "Installation Files: ✅ Present" -ForegroundColor Green
+        } else {
+            Write-Host "Installation Files: ❌ Missing" -ForegroundColor Red
+        }
         
         # Check hosts file entry
         try {
