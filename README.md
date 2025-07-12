@@ -31,6 +31,22 @@ A web service for creating short URLs used by the gapir tool for cleaner output.
 ## Installation
 
 ### gapir Installation
+
+**Option 1: Using the Install Script (Recommended)**
+Use the provided PowerShell script for easy installation:
+
+```powershell
+cd src\gapir
+.\install-tool.ps1
+```
+
+This script will:
+- Build the project in Release mode
+- Pack it as a NuGet package
+- Uninstall any existing version
+- Install the new version globally
+
+**Option 2: Manual Installation**
 Install as a global .NET tool:
 
 ```bash
@@ -94,23 +110,9 @@ Reviewers:
 
 ```bash
 git clone <repository-url>
-cd gapir
+cd ApiReview
 dotnet build
 ```
-
-### Installing Locally
-
-Use the provided PowerShell script:
-
-```bash
-.\src\gapir\install-tool.ps1
-```
-
-This script will:
-1. Build the project in Release mode
-2. Pack it as a NuGet package
-3. Uninstall any existing version
-4. Install the new version globally
 
 ## Requirements
 
