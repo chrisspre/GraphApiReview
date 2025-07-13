@@ -2,6 +2,8 @@ namespace gapir;
 
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.VisualStudio.Services.Identity;
+using Microsoft.VisualStudio.Services.Identity.Client;
 using gapir.Utilities;
 
 public class PullRequestChecker(bool showApproved, bool useShortUrls = true, bool showDetailedTiming = false)
@@ -9,11 +11,15 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
     private readonly bool _showApproved = showApproved;
     private readonly bool _useShortUrls = useShortUrls;
     private readonly bool _showDetailedTiming = showDetailedTiming;
+    
+    // Cache for API reviewers group members to avoid repeated API calls
+    private HashSet<string>? _apiReviewersMembers;
 
     // Azure DevOps organization URL, Project and repository details
     private const string OrganizationUrl = "https://msazure.visualstudio.com/";
     private const string ProjectName = "One";
     private const string RepositoryName = "AD-AggregatorService-Workloads";
+    private const string ApiReviewersGroupName = "[TEAM FOUNDATION]\\SCIM API reviewers";
 
     public async Task RunAsync()
     {
@@ -35,6 +41,257 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
         await CheckPullRequestsAsync(connection);
     }
 
+    private async Task<HashSet<string>> GetApiReviewersGroupMembersAsync(VssConnection connection)
+    {
+        if (_apiReviewersMembers != null)
+            return _apiReviewersMembers;
+
+        try
+        {
+            var identityClient = connection.GetClient<IdentityHttpClient>();
+            
+            Log.Information("Fetching API reviewers group members...");
+            
+            // Method 1: Try to find the group by searching for it
+            var searchResults = await identityClient.ReadIdentitiesAsync(
+                IdentitySearchFilter.General,
+                ApiReviewersGroupName,
+                queryMembership: QueryMembership.Expanded);
+
+            var apiGroup = searchResults?.FirstOrDefault(i => 
+                i.DisplayName?.Equals(ApiReviewersGroupName, StringComparison.OrdinalIgnoreCase) == true ||
+                i.DisplayName?.Contains("SCIM API reviewers", StringComparison.OrdinalIgnoreCase) == true);
+
+            if (apiGroup != null)
+            {
+                Log.Debug($"Found group: {apiGroup.DisplayName}, Id: {apiGroup.Id}");
+                Log.Debug($"Group MemberIds count: {apiGroup.MemberIds?.Count() ?? 0}");
+                Log.Debug($"Group Members count: {apiGroup.Members?.Count() ?? 0}");
+                
+                // Method 1a: Try MemberIds first (direct members)
+                if (apiGroup.MemberIds?.Any() == true)
+                {
+                    _apiReviewersMembers = apiGroup.MemberIds.Select(id => id.ToString()).ToHashSet();
+                    Log.Information($"Found {_apiReviewersMembers.Count} members via MemberIds");
+                }
+                // Method 1b: Try Members property (might contain nested groups)
+                else if (apiGroup.Members?.Any() == true)
+                {
+                    _apiReviewersMembers = apiGroup.Members.Select(m => m.Identifier).ToHashSet();
+                    Log.Information($"Found {_apiReviewersMembers.Count} members via Members property");
+                }
+                // Method 1c: Try to get group membership by reading the group directly with expanded membership
+                else
+                {
+                    Log.Debug("Group found but no direct members, trying to read group with explicit membership expansion");
+                    var groupWithMembers = await identityClient.ReadIdentityAsync(
+                        apiGroup.Id, 
+                        QueryMembership.Expanded);
+                    
+                    if (groupWithMembers?.MemberIds?.Any() == true)
+                    {
+                        _apiReviewersMembers = groupWithMembers.MemberIds.Select(id => id.ToString()).ToHashSet();
+                        Log.Information($"Found {_apiReviewersMembers.Count} members via direct group read");
+                    }
+                    else if (groupWithMembers?.Members?.Any() == true)
+                    {
+                        _apiReviewersMembers = groupWithMembers.Members.Select(m => m.Identifier).ToHashSet();
+                        Log.Information($"Found {_apiReviewersMembers.Count} members via direct group read (Members property)");
+                    }
+                    else
+                    {
+                        // Method 1d: Try to get members by searching for users in this group
+                        Log.Debug("Trying to find group members by searching for users with this group membership");
+                        await TryGetMembersByGroupSearch(identityClient, apiGroup.Id);
+                    }
+                }
+            }
+            
+            // Method 2: If still no members, try alternative search approaches
+            if ((_apiReviewersMembers?.Count ?? 0) == 0)
+            {
+                await TryAlternativeGroupSearches(identityClient);
+            }
+            
+            // Method 3: Last resort - analyze recent PR reviewers to identify API reviewers
+            if ((_apiReviewersMembers?.Count ?? 0) == 0)
+            {
+                Log.Warning("Could not find API reviewers group members via Identity API");
+                Log.Information("Attempting to identify API reviewers from recent PR history...");
+                await TryIdentifyApiReviewersFromPRHistory(connection);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Error fetching API reviewers group members: {ex.Message}");
+            Log.Warning("Falling back to heuristic-based API reviewer detection");
+            _apiReviewersMembers = new HashSet<string>();
+        }
+
+        return _apiReviewersMembers ?? new HashSet<string>();
+    }
+
+    private async Task TryGetMembersByGroupSearch(IdentityHttpClient identityClient, Guid groupId)
+    {
+        try
+        {
+            // Azure DevOps Identity API doesn't have ReadMembersOfAsync, let's try a different approach
+            // We'll search for the group again with a different query membership approach
+            var groupIdentity = await identityClient.ReadIdentityAsync(groupId, QueryMembership.Direct);
+            
+            if (groupIdentity?.MemberIds?.Any() == true)
+            {
+                _apiReviewersMembers = groupIdentity.MemberIds.Select(u => u.ToString()).ToHashSet();
+                Log.Information($"Found {_apiReviewersMembers.Count} members via ReadIdentityAsync with Direct membership");
+            }
+            else if (groupIdentity?.Members?.Any() == true)
+            {
+                _apiReviewersMembers = groupIdentity.Members.Select(m => m.Identifier).ToHashSet();
+                Log.Information($"Found {_apiReviewersMembers.Count} members via ReadIdentityAsync Direct (Members property)");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug($"ReadIdentityAsync with Direct membership failed: {ex.Message}");
+        }
+    }
+
+    private async Task TryAlternativeGroupSearches(IdentityHttpClient identityClient)
+    {
+        try
+        {
+            // Try searching for just "SCIM API reviewers" without the prefix
+            var altSearchResults = await identityClient.ReadIdentitiesAsync(
+                IdentitySearchFilter.General,
+                "SCIM API reviewers",
+                queryMembership: QueryMembership.Expanded);
+
+            var altApiGroup = altSearchResults?.FirstOrDefault(i => 
+                i.DisplayName?.Contains("SCIM API reviewers", StringComparison.OrdinalIgnoreCase) == true);
+
+            if (altApiGroup?.MemberIds?.Any() == true)
+            {
+                _apiReviewersMembers = altApiGroup.MemberIds.Select(id => id.ToString()).ToHashSet();
+                Log.Information($"Found {_apiReviewersMembers.Count} members via alternative search (MemberIds)");
+            }
+            else if (altApiGroup?.Members?.Any() == true)
+            {
+                _apiReviewersMembers = altApiGroup.Members.Select(m => m.Identifier).ToHashSet();
+                Log.Information($"Found {_apiReviewersMembers.Count} members via alternative search (Members)");
+            }
+            
+            // Try different search filters
+            if ((_apiReviewersMembers?.Count ?? 0) == 0)
+            {
+                var accountSearchResults = await identityClient.ReadIdentitiesAsync(
+                    IdentitySearchFilter.AccountName,
+                    "SCIM API reviewers",
+                    queryMembership: QueryMembership.Expanded);
+                
+                var accountApiGroup = accountSearchResults?.FirstOrDefault(i => 
+                    i.DisplayName?.Contains("SCIM API reviewers", StringComparison.OrdinalIgnoreCase) == true);
+                
+                if (accountApiGroup?.MemberIds?.Any() == true)
+                {
+                    _apiReviewersMembers = accountApiGroup.MemberIds.Select(id => id.ToString()).ToHashSet();
+                    Log.Information($"Found {_apiReviewersMembers.Count} members via account name search");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug($"Alternative group searches failed: {ex.Message}");
+        }
+    }
+
+    private async Task TryIdentifyApiReviewersFromPRHistory(VssConnection connection)
+    {
+        try
+        {
+            var gitClient = connection.GetClient<GitHttpClient>();
+            var repository = await gitClient.GetRepositoryAsync(ProjectName, RepositoryName);
+            
+            // Get recent completed PRs to analyze reviewer patterns  
+            var recentSearchCriteria = new GitPullRequestSearchCriteria()
+            {
+                Status = PullRequestStatus.Completed
+            };
+            
+            var recentPRs = await gitClient.GetPullRequestsAsync(repository.Id, recentSearchCriteria, top: 50);
+            
+            // Filter to only PRs from the last 30 days
+            var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+            var filteredPRs = recentPRs.Where(pr => pr.CreationDate >= thirtyDaysAgo).ToList();
+            
+            // Analyze reviewers who frequently appear on PRs and look for patterns
+            var reviewerFrequency = new Dictionary<string, int>();
+            var reviewerInfo = new Dictionary<string, (string displayName, string uniqueName)>();
+            
+            foreach (var pr in filteredPRs)
+            {
+                if (pr.Reviewers?.Any() == true)
+                {
+                    foreach (var reviewer in pr.Reviewers)
+                    {
+                        // Skip system accounts
+                        if (reviewer.DisplayName.StartsWith("[TEAM FOUNDATION]") ||
+                            reviewer.DisplayName.Contains("Bot") ||
+                            reviewer.DisplayName.Contains("Automation"))
+                            continue;
+                            
+                        var reviewerId = reviewer.Id.ToString();
+                        reviewerFrequency[reviewerId] = reviewerFrequency.GetValueOrDefault(reviewerId, 0) + 1;
+                        reviewerInfo[reviewerId] = (reviewer.DisplayName, reviewer.UniqueName);
+                    }
+                }
+            }
+            
+            // Identify likely API reviewers (appear on many PRs + heuristics)
+            var likelyApiReviewers = reviewerFrequency
+                .Where(kvp => kvp.Value >= 3) // Appeared on at least 3 PRs
+                .Where(kvp => reviewerInfo.ContainsKey(kvp.Key))
+                .Where(kvp => 
+                {
+                    var (displayName, uniqueName) = reviewerInfo[kvp.Key];
+                    return IsLikelyApiReviewer(displayName, uniqueName);
+                })
+                .Select(kvp => kvp.Key)
+                .ToHashSet();
+            
+            if (likelyApiReviewers.Count > 0)
+            {
+                _apiReviewersMembers = likelyApiReviewers;
+                Log.Information($"Identified {_apiReviewersMembers.Count} likely API reviewers from PR history analysis");
+                Log.Debug($"API reviewers identified: {string.Join(", ", likelyApiReviewers.Select(id => reviewerInfo[id].displayName))}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug($"PR history analysis failed: {ex.Message}");
+        }
+    }
+
+    private static bool IsLikelyApiReviewer(string displayName, string uniqueName)
+    {
+        // Enhanced heuristics to identify API reviewers
+        var lowerDisplayName = displayName?.ToLowerInvariant() ?? "";
+        var lowerUniqueName = uniqueName?.ToLowerInvariant() ?? "";
+        
+        // Look for API-related terms in names or emails
+        var apiTerms = new[] { "api", "scim", "graph", "review", "architect", "platform" };
+        var exclusionTerms = new[] { "test", "automation", "bot", "build" };
+        
+        // Check if name/email contains API-related terms
+        var hasApiTerms = apiTerms.Any(term => 
+            lowerDisplayName.Contains(term) || lowerUniqueName.Contains(term));
+            
+        // Check if name/email contains exclusion terms
+        var hasExclusionTerms = exclusionTerms.Any(term => 
+            lowerDisplayName.Contains(term) || lowerUniqueName.Contains(term));
+        
+        return hasApiTerms && !hasExclusionTerms;
+    }
+
     private async Task CheckPullRequestsAsync(VssConnection connection)
     {
         try
@@ -46,6 +303,9 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
             var currentUser = connection.AuthorizedIdentity;
 
             Log.Information($"Checking pull requests for user: {currentUser.DisplayName}");
+
+            // Pre-load API reviewers group members
+            var apiReviewersMembers = await GetApiReviewersGroupMembersAsync(connection);
 
             // Get repository
             var repository = await gitClient.GetRepositoryAsync(ProjectName, RepositoryName);
@@ -83,12 +343,8 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
                 Console.WriteLine($"\n✅ {approvedPullRequests.Count} PR(s) you have already approved:");
                 Console.WriteLine("Reason why PR is not completed: ");
                 Console.WriteLine("    REJ=Rejected, WFA=Waiting For Author, POL=Policy/Build Issues");
-                Console.WriteLine("    PAP=Pending API Reviewer Approval, PAO=Pending Other Approvals");
+                Console.WriteLine("    PRA=Pending Reviewer Approval, POA=Pending Other Approvals");
                 
-                if (_showDetailedTiming)
-                {
-                    Console.WriteLine("Age column: Age=Days since your approval");
-                }
 
                 // Prepare table data - adjust headers based on detailed timing flag
                 string[] headers;
@@ -109,7 +365,7 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
                 foreach (var pr in approvedPullRequests)
                 {
                     var url = GetFullPullRequestUrl(pr, _useShortUrls);
-                    var reason = GetPendingReason(pr);
+                    var reason = GetPendingReason(pr, apiReviewersMembers);
 
                     if (_showDetailedTiming)
                     {
@@ -388,7 +644,7 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
             return "< 1m";
     }
 
-    private static string GetPendingReason(GitPullRequest pr)
+    private static string GetPendingReason(GitPullRequest pr, HashSet<string> apiReviewersMembers)
     {
         try
         {
@@ -405,21 +661,38 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
             if (waitingForAuthorCount > 0)
                 return "WFA"; // Waiting For Author
 
-            // Identify API reviewers by checking if they're part of the API reviewers group
-            // Since we can't easily get group membership via API in this context,
-            // we'll use a heuristic: if the reviewer's unique name or display name suggests they're API reviewers
-            var apiReviewers = allReviewers.Where(r => 
-                IsApiReviewer(r.UniqueName, r.DisplayName)).ToList();
-            
-            // Get non-API human reviewers (excluding groups and automation)
-            var nonApiReviewers = allReviewers.Where(r => 
-                !IsApiReviewer(r.UniqueName, r.DisplayName) &&
-                !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
-                !r.DisplayName.StartsWith($"[{ProjectName}]") &&
-                !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
-                !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
-                !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase)
-            ).ToList();
+            // Identify API reviewers using actual group membership (preferred) or heuristics (fallback)
+            List<IdentityRefWithVote> apiReviewers;
+            List<IdentityRefWithVote> nonApiReviewers;
+
+            if (apiReviewersMembers.Count > 0)
+            {
+                // Use actual group membership data - convert Guid to string for comparison
+                apiReviewers = allReviewers.Where(r => apiReviewersMembers.Contains(r.Id.ToString())).ToList();
+                nonApiReviewers = allReviewers.Where(r => 
+                    !apiReviewersMembers.Contains(r.Id.ToString()) &&
+                    !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
+                    !r.DisplayName.StartsWith($"[{ProjectName}]") &&
+                    !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
+                    !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
+                    !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase)
+                ).ToList();
+            }
+            else
+            {
+                // Fallback to heuristic-based detection
+                apiReviewers = allReviewers.Where(r => 
+                    IsApiReviewer(r.UniqueName, r.DisplayName)).ToList();
+                
+                nonApiReviewers = allReviewers.Where(r => 
+                    !IsApiReviewer(r.UniqueName, r.DisplayName) &&
+                    !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
+                    !r.DisplayName.StartsWith($"[{ProjectName}]") &&
+                    !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
+                    !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
+                    !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase)
+                ).ToList();
+            }
 
             // Check API reviewers approval status (need at least 2 approved)
             var apiApprovedCount = apiReviewers.Count(r => r.Vote >= 5);
@@ -431,11 +704,11 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
 
             // If we don't have enough API approvals yet
             if (apiReviewers.Count > 0 && apiApprovedCount < apiRequiredCount)
-                return "PAP"; // Pending API Approvals
+                return "PRA"; // Pending Reviewer Approval (API reviewers)
 
             // If API approvals are satisfied but non-API reviewers haven't all approved
             if (apiApprovedCount >= apiRequiredCount && nonApiTotalCount > 0 && nonApiApprovedCount < nonApiTotalCount)
-                return "PAO"; // Pending Other Approvals
+                return "POA"; // Pending Other Approvals
 
             // If no specific API reviewers found, use general logic
             if (apiReviewers.Count == 0)
@@ -455,7 +728,7 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
                     !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase));
                 
                 if (totalApproved < totalRequired)
-                    return "PAP"; // Pending Approvals (general)
+                    return "PRA"; // Pending Reviewer Approval (general)
             }
 
             // If we get here, approvals are likely satisfied but there might be policy/build issues
@@ -469,8 +742,8 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
 
     private static bool IsApiReviewer(string uniqueName, string displayName)
     {
-        // Heuristic to identify API reviewers
-        // This would be better with actual group membership, but serves as a fallback
+        // Heuristic fallback to identify API reviewers when group membership data is not available
+        // This method is used only when Azure DevOps Identity API calls fail
         
         // Check if the unique name contains patterns that suggest API reviewer membership
         if (!string.IsNullOrEmpty(uniqueName))

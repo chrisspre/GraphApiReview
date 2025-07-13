@@ -81,53 +81,75 @@ public static class Log
     }
 
     /// <summary>
-    /// Logs an informational message when verbose mode is enabled.
+    /// Log an informational message. Only shown when verbose mode is enabled.
     /// </summary>
     /// <param name="message">The message to log</param>
     public static void Information(string message)
     {
-        if (_isVerbose)
+        if (!_isVerbose)
         {
-            Console.WriteLine(message);
+            return;
         }
+
+        var emoji = _useEmoji ? "ℹ️ " : "";
+        Console.WriteLine($"{emoji}{message}");
     }
 
     /// <summary>
-    /// Logs a success message when verbose mode is enabled. Prepends the message with a ✓ prefix.
+    /// Log a warning message.
+    /// </summary>
+    /// <param name="message">The message to log</param>
+    public static void Warning(string message)
+    {
+        var emoji = _useEmoji ? "⚠️ " : "";
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine($"{emoji}{message}");
+        Console.ResetColor();
+    }
+
+    /// <summary>
+    /// Log an error message.
+    /// </summary>
+    /// <param name="message">The message to log</param>
+    public static void Error(string message)
+    {
+        var emoji = _useEmoji ? "❌" : "";
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine($"{emoji}{message}");
+        Console.ResetColor();
+    }
+
+    /// <summary>
+    /// Log a success message. Only shown when verbose mode is enabled.
     /// </summary>
     /// <param name="message">The message to log</param>
     public static void Success(string message)
     {
-        if (_isVerbose)
+        if (!_isVerbose)
         {
-            var prefix = _useEmoji ? SUCCESS_EMOJI : SUCCESS_TEXT;
-            Console.WriteLine($"{prefix} {message}");
+            return;
         }
+
+        var emoji = _useEmoji ? "✅" : "";
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($"{emoji}{message}");
+        Console.ResetColor();
     }
 
     /// <summary>
-    /// Logs an error message when verbose mode is enabled. Prepends the message with a ✗ prefix.
+    /// Log a debug message. Only shown when verbose mode is enabled.
     /// </summary>
-    /// <param name="message">The error message to log</param>
-    public static void Error(string message)
+    /// <param name="message">The message to log</param>
+    public static void Debug(string message)
     {
-        if (_isVerbose)
+        if (!_isVerbose)
         {
-            var prefix = _useEmoji ? ERROR_EMOJI : ERROR_TEXT;
-            Console.WriteLine($"{prefix} {message}");
+            return;
         }
-    }
 
-    /// <summary>
-    /// Logs a warning message when verbose mode is enabled. Prepends the message with a ! prefix.
-    /// </summary>
-    /// <param name="message">The warning message to log</param>
-    public static void Warning(string message)
-    {
-        if (_isVerbose)
-        {
-            var prefix = _useEmoji ? WARNING_EMOJI : WARNING_TEXT;
-            Console.WriteLine($"{prefix} {message}");
-        }
+        var emoji = _useEmoji ? "🔍" : "[DEBUG]";
+        Console.ForegroundColor = ConsoleColor.Gray;
+        Console.WriteLine($"{emoji} {message}");
+        Console.ResetColor();
     }
 }

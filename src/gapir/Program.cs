@@ -29,6 +29,7 @@ class Program
         catch (Exception ex)
         {
             Console.WriteLine($"Error: {ex.Message}");
+            Log.Error($"Application error: {ex.Message}");
         }
     }
 
