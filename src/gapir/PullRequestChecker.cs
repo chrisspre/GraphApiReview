@@ -393,8 +393,8 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
             }
 
             // Prepare table data for pending PRs
-            var pendingHeaders = new[] { "Title", "Author", "Assigned", "Ratio", "ID", "URL" };
-            var pendingMaxWidths = new[] { 35, 20, 12, 12, 8, -1 }; // -1 means no limit for URLs
+            var pendingHeaders = new[] { "Title", "Author", "Assigned", "Ratio", "Status", "ID", "URL" };
+            var pendingMaxWidths = new[] { 30, 18, 10, 8, 6, 8, -1 }; // -1 means no limit for URLs
 
             var pendingRows = new List<string[]>();
             foreach (var pr in pendingPullRequests)
@@ -402,12 +402,14 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
                 var timeAssigned = GetTimeAssignedToReviewer(pr, currentUser.Id);
                 var approvalRatio = GetApprovalRatio(pr);
                 var url = GetFullPullRequestUrl(pr, _useShortUrls);
+                var myVoteStatus = GetMyVoteStatus(pr, currentUser.Id, currentUser.DisplayName);
 
                 pendingRows.Add([
                     ShortenTitle(pr.Title),
                     pr.CreatedBy.DisplayName,
                     timeAssigned,
                     approvalRatio,
+                    myVoteStatus,
                     pr.PullRequestId.ToString(),
                     url
                 ]);
@@ -417,7 +419,7 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
 
             // Show detailed information for each pending PR
             Console.WriteLine($"\n📋 Detailed information:");
-            Console.WriteLine(new string('=', 60));
+            Console.WriteLine(new string('=', 80));
 
             foreach (var pr in pendingPullRequests)
             {
@@ -458,7 +460,7 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
                     }
                 }
 
-                Console.WriteLine(new string('-', 60));
+                Console.WriteLine(new string('-', 80));
             }
         }
         catch (Exception ex)
@@ -496,10 +498,10 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
         // Remove extra whitespace
         cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", " ").Trim();
 
-        // Truncate to 40 characters
-        if (cleaned.Length > 40)
+        // Truncate to 30 characters for table display
+        if (cleaned.Length > 30)
         {
-            cleaned = $"{cleaned[..37]}...";
+            cleaned = $"{cleaned[..27]}...";
         }
 
         return cleaned;
@@ -603,6 +605,33 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
         catch
         {
             return "Unknown";
+        }
+    }
+
+    private static string GetMyVoteStatus(GitPullRequest pr, Guid currentUserId, string currentUserDisplayName)
+    {
+        try
+        {
+            var currentUserReviewer = pr.Reviewers?.FirstOrDefault(r =>
+                r.Id.Equals(currentUserId) ||
+                r.DisplayName.Equals(currentUserDisplayName, StringComparison.OrdinalIgnoreCase));
+            
+            if (currentUserReviewer == null)
+                return "---"; // Not a reviewer
+                
+            return currentUserReviewer.Vote switch
+            {
+                10 => "APP", // Approved
+                5 => "APS", // Approved with suggestions
+                0 => "NOV", // No vote
+                -5 => "WFA", // Waiting for author (you requested changes)
+                -10 => "REJ", // Rejected
+                _ => "UNK" // Unknown
+            };
+        }
+        catch
+        {
+            return "ERR"; // Error
         }
     }
 
