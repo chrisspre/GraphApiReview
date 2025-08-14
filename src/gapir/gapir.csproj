@@ -6,6 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     
+    <!-- Performance optimizations -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    
     <!-- Global Tool Configuration -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>gapir</ToolCommandName>
@@ -27,6 +30,7 @@
     <PackageReference Include="Microsoft.VisualStudio.Services.Client" Version="16.205.1" />
     <PackageReference Include="Microsoft.VisualStudio.Services.InteractiveClient" Version="16.205.1" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.73.1" />
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <PackageReference Include="System.Windows.Extensions" Version="8.0.0" />
   </ItemGroup>
 

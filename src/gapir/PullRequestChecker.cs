@@ -6,11 +6,9 @@ using Microsoft.VisualStudio.Services.Identity;
 using Microsoft.VisualStudio.Services.Identity.Client;
 using gapir.Utilities;
 
-public class PullRequestChecker(bool showApproved, bool useShortUrls = true, bool showDetailedTiming = false)
+public class PullRequestChecker(PullRequestCheckerOptions options)
 {
-    private readonly bool _showApproved = showApproved;
-    private readonly bool _useShortUrls = useShortUrls;
-    private readonly bool _showDetailedTiming = showDetailedTiming;
+    private readonly PullRequestCheckerOptions _options = options ?? throw new ArgumentNullException(nameof(options));
     
     // Cache for API reviewers group members to avoid repeated API calls
     private HashSet<string>? _apiReviewersMembers;
@@ -27,12 +25,20 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
         Console.WriteLine("===============================================================");
         Console.WriteLine();
 
-        var connection = await ConsoleAuth.AuthenticateAsync(OrganizationUrl);
-
-        if (connection == null)
+        VssConnection? connection;
+        
+        // Authentication phase
+        using (var authSpinner = new Spinner("Authenticating with Azure DevOps..."))
         {
-            Console.WriteLine("Authentication failed. Exiting...");
-            return;
+            connection = await ConsoleAuth.AuthenticateAsync(OrganizationUrl);
+
+            if (connection == null)
+            {
+                authSpinner.Error("Authentication failed");
+                return;
+            }
+            
+            authSpinner.Success("Authentication successful");
         }
 
         Log.Information("Successfully authenticated!");
@@ -296,29 +302,41 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
     {
         try
         {
-            // Get Git client
+            // Get Git client and current user
             var gitClient = connection.GetClient<GitHttpClient>();
-
-            // Get current user identity
             var currentUser = connection.AuthorizedIdentity;
 
             Log.Information($"Checking pull requests for user: {currentUser.DisplayName}");
 
             // Pre-load API reviewers group members
-            var apiReviewersMembers = await GetApiReviewersGroupMembersAsync(connection);
-
-            // Get repository
-            var repository = await gitClient.GetRepositoryAsync(ProjectName, RepositoryName);
-
-            // Search for pull requests assigned to the current user
-            var searchCriteria = new GitPullRequestSearchCriteria()
+            HashSet<string> apiReviewersMembers;
+            using (var groupSpinner = new Spinner("Loading API reviewers group..."))
             {
-                Status = PullRequestStatus.Active,
-                ReviewerId = currentUser.Id
-            };
+                apiReviewersMembers = await GetApiReviewersGroupMembersAsync(connection);
+                groupSpinner.Success($"Loaded {apiReviewersMembers.Count} API reviewers");
+            }
 
-            var pullRequests = await gitClient.GetPullRequestsAsync(repository.Id, searchCriteria);
+            // Get repository and pull requests
+            GitRepository repository;
+            List<GitPullRequest> pullRequests;
+            
+            using (var prSpinner = new Spinner("Fetching pull requests..."))
+            {
+                repository = await gitClient.GetRepositoryAsync(ProjectName, RepositoryName);
+                
+                var searchCriteria = new GitPullRequestSearchCriteria()
+                {
+                    Status = PullRequestStatus.Active,
+                    ReviewerId = currentUser.Id
+                };
 
+                pullRequests = await gitClient.GetPullRequestsAsync(repository.Id, searchCriteria);
+                prSpinner.Success($"Found {pullRequests.Count} assigned pull requests");
+            }
+
+            // Process the results
+            Console.WriteLine("Analyzing pull request statuses...");
+            
             // Separate PRs into approved and pending
             var approvedPullRequests = new List<GitPullRequest>();
             var pendingPullRequests = new List<GitPullRequest>();
@@ -337,10 +355,12 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
                     pendingPullRequests.Add(pr);
             }
 
+            Console.WriteLine(); // Empty line before results
+
             // Show short list of approved PRs (only if requested)
-            if (_showApproved && approvedPullRequests.Count > 0)
+            if (_options.ShowApproved && approvedPullRequests.Count > 0)
             {
-                Console.WriteLine($"\n✅ {approvedPullRequests.Count} PR(s) you have already approved:");
+                Console.WriteLine($"✓ {approvedPullRequests.Count} PR(s) you have already approved:");
                 Console.WriteLine("Reason why PR is not completed: ");
                 Console.WriteLine("    REJ=Rejected, WFA=Waiting For Author, POL=Policy/Build Issues");
                 Console.WriteLine("    PRA=Pending Reviewer Approval, POA=Pending Other Approvals");
@@ -350,7 +370,7 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
                 string[] headers;
                 int[] maxWidths;
                 
-                if (_showDetailedTiming)
+                if (_options.ShowDetailedTiming)
                 {
                     headers = new[] { "Author", "Title", "Why", "Age", "URL" };
                     maxWidths = new[] { 20, 30, 3, 5, -1 }; // Adjusted widths for single age column
@@ -364,10 +384,10 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
                 var rows = new List<string[]>();
                 foreach (var pr in approvedPullRequests)
                 {
-                    var url = GetFullPullRequestUrl(pr, _useShortUrls);
+                    var url = GetFullPullRequestUrl(pr, _options.UseShortUrls);
                     var reason = GetPendingReason(pr, apiReviewersMembers);
 
-                    if (_showDetailedTiming)
+                    if (_options.ShowDetailedTiming)
                     {
                         var age = FormatTimeDifferenceDays(DateTime.UtcNow - pr.CreationDate);
                         
@@ -383,11 +403,11 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
             }
 
             // Show detailed list of pending PRs
-            Console.WriteLine($"\n⏳ {pendingPullRequests.Count} PR(s) pending your approval:");
+            Console.WriteLine($"⏳ {pendingPullRequests.Count} PR(s) pending your full approval:");
 
             if (pendingPullRequests.Count == 0)
             {
-                Console.WriteLine("No pull requests found pending your approval.");
+                Console.WriteLine("No pull requests found pending your full approval.");
                 Console.WriteLine();
                 return;
             }
@@ -401,7 +421,7 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
             {
                 var timeAssigned = GetTimeAssignedToReviewer(pr, currentUser.Id);
                 var approvalRatio = GetApprovalRatio(pr);
-                var url = GetFullPullRequestUrl(pr, _useShortUrls);
+                var url = GetFullPullRequestUrl(pr, _options.UseShortUrls);
                 var myVoteStatus = GetMyVoteStatus(pr, currentUser.Id, currentUser.DisplayName);
 
                 pendingRows.Add([
@@ -417,50 +437,53 @@ public class PullRequestChecker(bool showApproved, bool useShortUrls = true, boo
 
             PrintTable(pendingHeaders, pendingRows, pendingMaxWidths);
 
-            // Show detailed information for each pending PR
-            Console.WriteLine($"\n📋 Detailed information:");
-            Console.WriteLine(new string('=', 80));
-
-            foreach (var pr in pendingPullRequests)
+            // Show detailed information for each pending PR (only if not hidden)
+            if (_options.ShowDetailedInfo)
             {
-                Console.WriteLine($"ID: {pr.PullRequestId}");
-                Console.WriteLine($"Title: {ShortenTitle(pr.Title)}");
-                Console.WriteLine($"Author: {pr.CreatedBy.DisplayName}");
-                Console.WriteLine($"Status: {pr.Status}");
-                Console.WriteLine($"Created: {pr.CreationDate:yyyy-MM-dd HH:mm:ss}");
-                Console.WriteLine($"URL: {GetFullPullRequestUrl(pr, _useShortUrls)}");
+                Console.WriteLine($"\n📋 Detailed information:");
+                Console.WriteLine(new string('=', 80));
 
-                // Check if there are any reviewers (filter out groups and automation accounts)
-                if (pr.Reviewers?.Any() == true)
+                foreach (var pr in pendingPullRequests)
                 {
-                    var humanReviewers = pr.Reviewers.Where(r =>
-                        !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
-                        !r.DisplayName.StartsWith($"[{ProjectName}]") &&
-                        !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
-                        !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
-                        !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase)
-                    ).ToList();
+                    Console.WriteLine($"ID: {pr.PullRequestId}");
+                    Console.WriteLine($"Title: {ShortenTitle(pr.Title)}");
+                    Console.WriteLine($"Author: {pr.CreatedBy.DisplayName}");
+                    Console.WriteLine($"Status: {pr.Status}");
+                    Console.WriteLine($"Created: {pr.CreationDate:yyyy-MM-dd HH:mm:ss}");
+                    Console.WriteLine($"URL: {GetFullPullRequestUrl(pr, _options.UseShortUrls)}");
 
-                    if (humanReviewers.Any())
+                    // Check if there are any reviewers (filter out groups and automation accounts)
+                    if (pr.Reviewers?.Any() == true)
                     {
-                        Console.WriteLine("Reviewers:");
-                        foreach (var reviewer in humanReviewers)
+                        var humanReviewers = pr.Reviewers.Where(r =>
+                            !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
+                            !r.DisplayName.StartsWith($"[{ProjectName}]") &&
+                            !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
+                            !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
+                            !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase)
+                        ).ToList();
+
+                        if (humanReviewers.Any())
                         {
-                            var vote = reviewer.Vote switch
+                            Console.WriteLine("Reviewers:");
+                            foreach (var reviewer in humanReviewers)
                             {
-                                10 => "Approved",
-                                5 => "Approved with suggestions",
-                                0 => "No vote",
-                                -5 => "Waiting for author",
-                                -10 => "Rejected",
-                                _ => "Unknown"
-                            };
-                            Console.WriteLine($"  - {reviewer.DisplayName}: {vote}");
+                                var vote = reviewer.Vote switch
+                                {
+                                    10 => "Approved",
+                                    5 => "Approved with suggestions",
+                                    0 => "No vote",
+                                    -5 => "Waiting for author",
+                                    -10 => "Rejected",
+                                    _ => "Unknown"
+                                };
+                                Console.WriteLine($"  - {reviewer.DisplayName}: {vote}");
+                            }
                         }
                     }
-                }
 
-                Console.WriteLine(new string('-', 80));
+                    Console.WriteLine(new string('-', 80));
+                }
             }
         }
         catch (Exception ex)

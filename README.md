@@ -141,6 +141,16 @@ The `ConsoleAuth` class can be easily reused in other Azure DevOps tools.
 dotnet tool uninstall --global GraphApiReview
 ```
 
+## Development & Contributing
+
+For developers wanting to contribute or understand the codebase:
+
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Architecture decisions, patterns, and development history
+- **[DECISIONS.md](DECISIONS.md)** - Detailed log of design choices and rationale
+- **[.copilot-context.md](.copilot-context.md)** - GitHub Copilot context for consistent development
+
+These files preserve the decision-making process and architectural context to help future maintainers and GitHub Copilot understand the reasoning behind the current implementation.
+
 ## License
 
 MIT License - see LICENSE file for details.

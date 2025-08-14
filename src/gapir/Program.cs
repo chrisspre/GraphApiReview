@@ -1,58 +1,80 @@
-﻿namespace gapir;
+﻿using System.CommandLine;
+
+namespace gapir;
 
 class Program
 {
-    static async Task Main(string[] args)
+    static async Task<int> Main(string[] args)
     {
-        try
+        // Create the root command
+        var rootCommand = new RootCommand("gapir (Graph API Review) - Azure DevOps Pull Request Checker")
         {
-            // Check for help
-            if (args.Contains("--help") || args.Contains("-h"))
+            Description = "Checks for pull requests assigned to you for review in Azure DevOps.\n\n" +
+                         "Status Codes:\n" +
+                         "  APP = Approved, APS = Approved with suggestions, NOV = No vote\n" +
+                         "  WFA = Waiting for author, REJ = Rejected\n\n" +
+                         "Reason Codes (for approved PRs):\n" +
+                         "  REJ = Rejected, WFA = Waiting for author, POL = Policy/build issues\n" +
+                         "  PRA = Pending reviewer approval, POA = Pending other approvals"
+        };
+
+        // Define options
+        var showApprovedOption = new Option<bool>(
+            aliases: ["--show-approved", "-a"],
+            description: "Show table of already approved PRs");
+
+        var verboseOption = new Option<bool>(
+            aliases: ["--verbose", "-v"],
+            description: "Show diagnostic messages during execution");
+
+        var fullUrlsOption = new Option<bool>(
+            aliases: ["--full-urls", "-f"],
+            description: "Use full Azure DevOps URLs instead of short g URLs");
+
+        var detailedTimingOption = new Option<bool>(
+            aliases: ["--detailed-timing", "-t"],
+            description: "Show detailed age column - slower due to API calls");
+
+        var showDetailedInfoOption = new Option<bool>(
+            aliases: ["--show-detailed-info", "-d"],
+            description: "Show detailed information section for each pending PR");
+
+        // Add options to the root command
+        rootCommand.AddOption(showApprovedOption);
+        rootCommand.AddOption(verboseOption);
+        rootCommand.AddOption(fullUrlsOption);
+        rootCommand.AddOption(detailedTimingOption);
+        rootCommand.AddOption(showDetailedInfoOption);
+
+        // Set the handler
+        rootCommand.SetHandler(async (showApproved, verbose, fullUrls, detailedTiming, showDetailedInfo) =>
+        {
+            try
             {
-                ShowHelp();
-                return;
+                // Initialize the logger with verbosity setting
+                Log.Initialize(verbose);
+                
+                // Create options object
+                var options = new PullRequestCheckerOptions
+                {
+                    ShowApproved = showApproved,
+                    UseShortUrls = !fullUrls,
+                    ShowDetailedTiming = detailedTiming,
+                    ShowDetailedInfo = showDetailedInfo
+                };
+                
+                // Create and run the checker
+                var checker = new PullRequestChecker(options);
+                await checker.RunAsync();
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                Log.Error($"Application error: {ex.Message}");
+            }
+        }, showApprovedOption, verboseOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption);
 
-            // Parse command line arguments
-            bool showApproved = args.Contains("--show-approved") || args.Contains("-a");
-            bool verbose = args.Contains("--verbose") || args.Contains("-v");
-            bool useFullUrls = args.Contains("--full-urls") || args.Contains("-f");
-            bool showDetailedTiming = args.Contains("--detailed-timing") || args.Contains("-t");
-            
-            // Initialize the logger with verbosity setting
-            Log.Initialize(verbose);
-            
-            // Create and run the checker
-            var checker = new PullRequestChecker(showApproved, !useFullUrls, showDetailedTiming);
-            await checker.RunAsync();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
-            Log.Error($"Application error: {ex.Message}");
-        }
-    }
-
-    static void ShowHelp()
-    {
-        Console.WriteLine("gapir (Graph API Review) - Azure DevOps Pull Request Checker");
-        Console.WriteLine("===============================================================");
-        Console.WriteLine();
-        Console.WriteLine("Usage: gapir [options]");
-        Console.WriteLine();
-        Console.WriteLine("Options:");
-        Console.WriteLine("  -a, --show-approved    Show table of already approved PRs");
-        Console.WriteLine("  -t, --detailed-timing  Show detailed age column - slower due to API calls");
-        Console.WriteLine("  -v, --verbose          Show diagnostic messages during execution");
-        Console.WriteLine("  -f, --full-urls        Use full Azure DevOps URLs instead of short g URLs");
-        Console.WriteLine("  -h, --help             Show this help message");
-        Console.WriteLine();
-        Console.WriteLine("Description:");
-        Console.WriteLine("  Checks for pull requests assigned to you for review in Azure DevOps.");
-        Console.WriteLine("  By default, only shows pending PRs. Use --show-approved to also see");
-        Console.WriteLine("  a summary table of PRs you have already approved.");
-        Console.WriteLine("  Use --detailed-timing to add Age column (requires additional API calls).");
-        Console.WriteLine("  Use --verbose to see authentication and operation details.");
-        Console.WriteLine("  By default, uses short g URLs. Use --full-urls for complete Azure DevOps URLs.");
+        // Invoke the command
+        return await rootCommand.InvokeAsync(args);
     }
 }
