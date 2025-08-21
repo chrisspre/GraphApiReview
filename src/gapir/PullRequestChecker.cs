@@ -5,7 +5,6 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Identity;
 using Microsoft.VisualStudio.Services.Identity.Client;
 using gapir.Utilities;
-using System.Text.Json;
 
 public class PullRequestChecker(PullRequestCheckerOptions options)
 {
@@ -203,81 +202,12 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
 
     private static HashSet<string> GetStaticApiReviewersFallback()
     {
-        Log.Information("Loading static fallback list for API reviewers");
-        
-        try
-        {
-            // Try to load from config file first
-            var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "config", "api-reviewers.json");
-            var fullConfigPath = Path.GetFullPath(configPath);
-            
-            if (File.Exists(fullConfigPath))
-            {
-                Log.Information($"Loading API reviewers from config file: {fullConfigPath}");
-                var jsonContent = File.ReadAllText(fullConfigPath);
-                var config = JsonSerializer.Deserialize<ApiReviewersConfig>(jsonContent, new JsonSerializerOptions 
-                { 
-                    PropertyNameCaseInsensitive = true 
-                });
-                
-                if (config?.ApiReviewers?.Any() == true)
-                {
-                    var reviewerIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    
-                    foreach (var reviewer in config.ApiReviewers)
-                    {
-                        // Add all available identifiers for each reviewer
-                        if (!string.IsNullOrEmpty(reviewer.Id))
-                            reviewerIds.Add(reviewer.Id);
-                        if (!string.IsNullOrEmpty(reviewer.MailAddress))
-                            reviewerIds.Add(reviewer.MailAddress);
-                        if (!string.IsNullOrEmpty(reviewer.UniqueName))
-                            reviewerIds.Add(reviewer.UniqueName);
-                    }
-                    
-                    Log.Information($"Loaded {config.ApiReviewers.Count} API reviewers from config file (last updated: {config.LastUpdated})");
-                    return reviewerIds;
-                }
-                else
-                {
-                    Log.Warning("Config file exists but contains no API reviewers");
-                }
-            }
-            else
-            {
-                Log.Warning($"Config file not found at: {fullConfigPath}");
-                Log.Information("Run 'scripts/update-api-reviewers.ps1' to generate the config file");
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error($"Error loading API reviewers config: {ex.Message}");
-        }
-        
-        // Fallback to empty set if config loading fails
-        Log.Warning("Using empty API reviewers list - Ratio column will show '?/?' until config is populated");
-        return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Return static list from generated class
+        Log.Information($"Using static fallback list with {ApiReviewersFallback.KnownApiReviewers.Count} known API reviewers");
+        return new HashSet<string>(ApiReviewersFallback.KnownApiReviewers, StringComparer.OrdinalIgnoreCase);
     }
 
-    // Configuration classes for JSON deserialization
-    public class ApiReviewersConfig
-    {
-        public string? LastUpdated { get; set; }
-        public string? Organization { get; set; }
-        public string? Project { get; set; }
-        public string? GroupName { get; set; }
-        public string? GroupId { get; set; }
-        public string? Source { get; set; }
-        public List<ApiReviewer>? ApiReviewers { get; set; }
-    }
 
-    public class ApiReviewer
-    {
-        public string? Id { get; set; }
-        public string? DisplayName { get; set; }
-        public string? MailAddress { get; set; }
-        public string? UniqueName { get; set; }
-    }
 
     private async Task CheckPullRequestsAsync(VssConnection connection)
     {
