@@ -9,10 +9,10 @@ public class ReviewerCollector
 {
     private const string Organization = "https://dev.azure.com/msazure";
     private const string Project = "One";
-    
+
     // Repository to analyze for API reviewers
     private const string RepositoryToAnalyze = "AD-AggregatorService-Workloads";
-    
+
     private const int MaxPrsToAnalyze = 100;
 
     public async Task CollectAndGenerateAsync()
@@ -29,13 +29,13 @@ public class ReviewerCollector
                 Console.WriteLine("[ERROR] Authentication failed.");
                 return;
             }
-            
+
             var gitClient = connection.GetClient<GitHttpClient>();
             var reviewerCounts = new Dictionary<string, (int count, string displayName)>();
 
             Console.WriteLine($"\n[INFO] Analyzing repository: {RepositoryToAnalyze}");
             Console.WriteLine($"[INFO] Fetching recent pull requests (limit: {MaxPrsToAnalyze})...");
-            
+
             try
             {
                 // Get recent completed PRs
@@ -49,7 +49,7 @@ public class ReviewerCollector
                     top: MaxPrsToAnalyze);
 
                 Console.WriteLine($"[OK] Found {prs.Count} completed pull requests in {RepositoryToAnalyze}");
-                
+
                 if (prs.Count == 0)
                 {
                     Console.WriteLine($"[SKIP] No PRs found in {RepositoryToAnalyze}, skipping...");
@@ -72,7 +72,7 @@ public class ReviewerCollector
                         if (detailedPr?.Reviewers != null)
                         {
                             // First check if this PR has the "Microsoft Graph API reviewers" group assigned
-                            bool hasApiReviewersGroup = detailedPr.Reviewers.Any(r => 
+                            bool hasApiReviewersGroup = detailedPr.Reviewers.Any(r =>
                                 r.DisplayName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true ||
                                 r.UniqueName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true);
 
@@ -87,21 +87,25 @@ public class ReviewerCollector
 
                             foreach (var reviewer in detailedPr.Reviewers)
                             {
-                                // Only consider individual reviewers (exclude groups and tools)
-                                var reviewerKey = GetReviewerKey(reviewer);
-                                if (reviewerKey is not null )
+                                // // Consider a reviewer "required" if they are marked as required OR they provided approval/feedback
+                                // if (reviewer.IsRequired == true || reviewer.Vote > 0)
+                                if (reviewer.IsRequired == true)
                                 {
-                                    // Consider a reviewer "required" if they are marked as required OR they provided approval/feedback
-                                    if (reviewer.IsRequired == true || reviewer.Vote > 0)
+                                    // Only consider individual reviewers (exclude groups and tools)
+                                    if (GetReviewerKey(reviewer) is { } reviewerKey)
                                     {
                                         var displayName = reviewer.DisplayName ?? reviewerKey ?? "Unknown";
-                                        if (reviewerCounts.TryGetValue(reviewerKey, out var value))
+
+                                        // it is not clear why the C# compiler doesn't see that reviewerKey is not null
+                                        var key = reviewerKey!;
+                                        
+                                        if (reviewerCounts.TryGetValue(key, out var value))
                                         {
-                                            reviewerCounts[reviewerKey] = (value.count + 1, displayName);
+                                            value = (value.count + 1, displayName);
                                         }
                                         else
                                         {
-                                            reviewerCounts[reviewerKey] = (1, displayName);
+                                            reviewerCounts[key] = (1, displayName);
                                         }
                                     }
                                 }
@@ -139,7 +143,7 @@ public class ReviewerCollector
             Console.WriteLine();
             Console.WriteLine("[INFO] Generating C# fallback code...");
             GenerateCSharpCode(sortedReviewers);
-            
+
             Console.WriteLine("[OK] Analysis complete!");
         }
         catch (Exception ex)
@@ -158,7 +162,7 @@ public class ReviewerCollector
             if (reviewer.UniqueName.Contains("@microsoft.com"))
             {
                 var email = reviewer.UniqueName.ToLowerInvariant();
-                
+
                 // Filter out automated service accounts and tools
                 if (email.Contains("enforcer") ||          // esownenf@microsoft.com (Ownership Enforcer)
                     email.Equals("esownenf@microsoft.com") || // Explicit block for ownership enforcer
@@ -171,10 +175,10 @@ public class ReviewerCollector
                 {
                     return null; // Skip this reviewer
                 }
-                
+
                 return reviewer.UniqueName;
             }
-            
+
             // Skip VSTFS groups entirely - we only want individual accounts
             if (reviewer.UniqueName.StartsWith("vstfs:"))
             {
@@ -205,7 +209,7 @@ public class ReviewerCollector
     private static void GenerateCSharpCode(List<KeyValuePair<string, (int count, string displayName)>> sortedReviewers)
     {
         var sb = new StringBuilder();
-        
+
         sb.AppendLine("// Generated C# code for ApiReviewersFallback.cs");
         sb.AppendLine($"// Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         sb.AppendLine($"// Based on analysis of recent API review pull requests (PRs with 'Microsoft Graph API reviewers' group assigned)");
@@ -226,8 +230,8 @@ public class ReviewerCollector
             {
                 // Add display name if it's different from email and meaningful
                 var nameComment = "";
-                if (!string.IsNullOrEmpty(displayName) && 
-                    displayName != reviewer && 
+                if (!string.IsNullOrEmpty(displayName) &&
+                    displayName != reviewer &&
                     !displayName.Equals(reviewer, StringComparison.OrdinalIgnoreCase) &&
                     !displayName.Contains("@"))
                 {
@@ -248,7 +252,7 @@ public class ReviewerCollector
         Console.WriteLine(new string('-', 70));
         Console.WriteLine(sb.ToString());
         Console.WriteLine(new string('-', 70));
-        
+
         // Also save to a file for convenience
         var outputPath = Path.Combine(Directory.GetCurrentDirectory(), "generated-reviewers.cs");
         File.WriteAllText(outputPath, sb.ToString());
