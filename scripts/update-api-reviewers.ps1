@@ -27,15 +27,16 @@ $Organization = "https://dev.azure.com/One"
 $Project = "AD-AggregatorService-Workloads"
 $GroupName = "[TEAM FOUNDATION]\Microsoft Graph API reviewers"
 
-Write-Host "🔧 Azure DevOps API Reviewers Configuration Updater" -ForegroundColor Cyan
+Write-Host "Azure DevOps API Reviewers Configuration Updater" -ForegroundColor Cyan
 Write-Host "=" * 60
 
 # Check if Azure CLI is installed
 try {
     $azVersion = az version --output json 2>$null | ConvertFrom-Json
-    Write-Host "✅ Azure CLI found: $($azVersion.'azure-cli')" -ForegroundColor Green
+    Write-Host "[OK] Azure CLI found: $($azVersion.'azure-cli')" -ForegroundColor Green
 } catch {
-    Write-Error "❌ Azure CLI not found. Please install Azure CLI first: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+    Write-Error "[ERROR] Azure CLI not found. Please install Azure CLI first: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+     winget install --id $packageId --exact --silent
     exit 1
 }
 
@@ -45,66 +46,66 @@ try {
     $devopsExtension = $extensions | Where-Object { $_.name -eq "azure-devops" }
     
     if (-not $devopsExtension) {
-        Write-Host "📦 Installing Azure DevOps extension..." -ForegroundColor Yellow
+        Write-Host "[INFO] Installing Azure DevOps extension..." -ForegroundColor Yellow
         az extension add --name azure-devops
-        Write-Host "✅ Azure DevOps extension installed" -ForegroundColor Green
+        Write-Host "[OK] Azure DevOps extension installed" -ForegroundColor Green
     } else {
-        Write-Host "✅ Azure DevOps extension found: $($devopsExtension.version)" -ForegroundColor Green
+        Write-Host "[OK] Azure DevOps extension found: $($devopsExtension.version)" -ForegroundColor Green
     }
 } catch {
-    Write-Error "❌ Failed to check/install Azure DevOps extension"
+    Write-Error "[ERROR] Failed to check/install Azure DevOps extension"
     exit 1
 }
 
 # Configure Azure DevOps defaults
-Write-Host "🔧 Configuring Azure DevOps defaults..." -ForegroundColor Yellow
+Write-Host "[INFO] Configuring Azure DevOps defaults..." -ForegroundColor Yellow
 try {
     az devops configure --defaults organization=$Organization project=$Project
-    Write-Host "✅ Azure DevOps configured for organization: $Organization" -ForegroundColor Green
-    Write-Host "✅ Default project set to: $Project" -ForegroundColor Green
+    Write-Host "[OK] Azure DevOps configured for organization: $Organization" -ForegroundColor Green
+    Write-Host "[OK] Default project set to: $Project" -ForegroundColor Green
 } catch {
-    Write-Error "❌ Failed to configure Azure DevOps defaults"
+    Write-Error "[ERROR] Failed to configure Azure DevOps defaults"
     exit 1
 }
 
 # Check authentication
-Write-Host "🔐 Checking Azure DevOps authentication..." -ForegroundColor Yellow
+Write-Host "[INFO] Checking Azure DevOps authentication..." -ForegroundColor Yellow
 try {
     $user = az devops user show --user me --output json | ConvertFrom-Json
-    Write-Host "✅ Authenticated as: $($user.displayName) ($($user.mailAddress))" -ForegroundColor Green
+    Write-Host "[OK] Authenticated as: $($user.displayName) ($($user.mailAddress))" -ForegroundColor Green
 } catch {
-    Write-Error "❌ Not authenticated with Azure DevOps. Please run 'az login' first."
+    Write-Error "[ERROR] Not authenticated with Azure DevOps. Please run 'az login' first."
     exit 1
 }
 
 # List all security groups to find the target group
-Write-Host "🔍 Searching for API reviewers group..." -ForegroundColor Yellow
+Write-Host "[INFO] Searching for API reviewers group..." -ForegroundColor Yellow
 try {
     $groups = az devops security group list --output json | ConvertFrom-Json
     $apiGroup = $groups.graphGroups | Where-Object { $_.displayName -eq $GroupName }
     
     if (-not $apiGroup) {
-        Write-Warning "⚠️ Group '$GroupName' not found."
+        Write-Warning "[WARN] Group '$GroupName' not found."
         Write-Host "Available groups:" -ForegroundColor Cyan
         $groups.graphGroups | Where-Object { $_.displayName -like "*API*" -or $_.displayName -like "*review*" } | 
             ForEach-Object { Write-Host "  - $($_.displayName)" -ForegroundColor Gray }
         exit 1
     }
     
-    Write-Host "✅ Found group: $($apiGroup.displayName)" -ForegroundColor Green
-    Write-Host "   Group ID: $($apiGroup.descriptor)" -ForegroundColor Gray
+    Write-Host "[OK] Found group: $($apiGroup.displayName)" -ForegroundColor Green
+    Write-Host "      Group ID: $($apiGroup.descriptor)" -ForegroundColor Gray
 } catch {
-    Write-Error "❌ Failed to list security groups: $($_.Exception.Message)"
+    Write-Error "[ERROR] Failed to list security groups: $($_.Exception.Message)"
     exit 1
 }
 
 # Get group members
-Write-Host "👥 Fetching group members..." -ForegroundColor Yellow
+Write-Host "[INFO] Fetching group members..." -ForegroundColor Yellow
 try {
     $members = az devops security group membership list --id $apiGroup.descriptor --output json | ConvertFrom-Json
     
     if (-not $members -or $members.Count -eq 0) {
-        Write-Warning "⚠️ No members found in group or insufficient permissions to read group membership"
+        Write-Warning "[WARN] No members found in group or insufficient permissions to read group membership"
         Write-Host "This may be due to permission restrictions on nested groups." -ForegroundColor Yellow
         $reviewers = @()
     } else {
@@ -125,19 +126,19 @@ try {
             }
         }
         
-        Write-Host "✅ Found $($reviewers.Count) API reviewers" -ForegroundColor Green
+        Write-Host "[OK] Found $($reviewers.Count) API reviewers" -ForegroundColor Green
         foreach ($reviewer in $reviewers) {
-            Write-Host "  - $($reviewer.displayName)" -ForegroundColor Gray
+            Write-Host "      - $($reviewer.displayName)" -ForegroundColor Gray
         }
     }
 } catch {
-    Write-Warning "⚠️ Failed to fetch group members: $($_.Exception.Message)"
+    Write-Warning "[WARN] Failed to fetch group members: $($_.Exception.Message)"
     Write-Host "Creating empty fallback class - you may need to manually populate it." -ForegroundColor Yellow
     $reviewers = @()
 }
 
 # Generate C# file
-Write-Host "📄 Creating C# file..." -ForegroundColor Yellow
+Write-Host "[INFO] Creating C# file..." -ForegroundColor Yellow
 
 # Build the HashSet initialization
 $hashSetItems = @()
@@ -173,23 +174,23 @@ $($hashSetItems -join ",`n")
 
 try {
     $csharpContent | Out-File -FilePath $OutputPath -Encoding UTF8 -Force
-    Write-Host "✅ Successfully created $OutputPath" -ForegroundColor Green
+    Write-Host "[OK] Successfully created $OutputPath" -ForegroundColor Green
     
     if ($reviewers.Count -eq 0) {
-        Write-Host "⚠️ Note: The generated class contains no reviewers." -ForegroundColor Yellow
-        Write-Host "   You may need to manually add reviewers or check group permissions." -ForegroundColor Yellow
+        Write-Host "[WARN] Note: The generated class contains no reviewers." -ForegroundColor Yellow
+        Write-Host "       You may need to manually add reviewers or check group permissions." -ForegroundColor Yellow
     } else {
-        Write-Host "📊 Generated HashSet with $($hashSetItems.Count) identifiers for $($reviewers.Count) reviewers" -ForegroundColor Green
+        Write-Host "[INFO] Generated HashSet with $($hashSetItems.Count) identifiers for $($reviewers.Count) reviewers" -ForegroundColor Green
     }
     
-    Write-Host "`n🚀 Next steps:" -ForegroundColor Cyan
+    Write-Host "`nNext steps:" -ForegroundColor Cyan
     Write-Host "   1. Copy the generated file to your gapir project" -ForegroundColor Gray
     Write-Host "   2. Update your code to use ApiReviewersFallback.KnownApiReviewers" -ForegroundColor Gray
     Write-Host "   3. Rebuild and test your application" -ForegroundColor Gray
     
 } catch {
-    Write-Error "❌ Failed to create C# file: $($_.Exception.Message)"
+    Write-Error "[ERROR] Failed to create C# file: $($_.Exception.Message)"
     exit 1
 }
 
-Write-Host "`n🚀 Done!" -ForegroundColor Green
+Write-Host "`nDone!" -ForegroundColor Green
