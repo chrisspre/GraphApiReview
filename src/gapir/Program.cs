@@ -49,20 +49,33 @@ class Program
             aliases: ["--show-detailed-info", "-d"],
             description: "Show detailed information section for each pending PR");
 
+        var collectReviewersOption = new Option<bool>(
+            aliases: ["--collect-reviewers", "-c"],
+            description: "Collect required reviewers from recent PRs and generate ApiReviewersFallback.cs code");
+
         // Add options to the root command
         rootCommand.AddOption(showApprovedOption);
         rootCommand.AddOption(verboseOption);
         rootCommand.AddOption(fullUrlsOption);
         rootCommand.AddOption(detailedTimingOption);
         rootCommand.AddOption(showDetailedInfoOption);
+        rootCommand.AddOption(collectReviewersOption);
 
         // Set the handler
-        rootCommand.SetHandler(async (showApproved, verbose, fullUrls, detailedTiming, showDetailedInfo) =>
+        rootCommand.SetHandler(async (showApproved, verbose, fullUrls, detailedTiming, showDetailedInfo, collectReviewers) =>
         {
             try
             {
                 // Initialize the logger with verbosity setting
                 Log.Initialize(verbose);
+                
+                if (collectReviewers)
+                {
+                    // Run the reviewer collection functionality
+                    var collector = new ReviewerCollector();
+                    await collector.CollectAndGenerateAsync();
+                    return;
+                }
                 
                 // Create options object
                 var options = new PullRequestCheckerOptions
@@ -82,7 +95,7 @@ class Program
                 Console.WriteLine($"Error: {ex.Message}");
                 Log.Error($"Application error: {ex.Message}");
             }
-        }, showApprovedOption, verboseOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption);
+        }, showApprovedOption, verboseOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption, collectReviewersOption);
 
         // Invoke the command
         return await rootCommand.InvokeAsync(args);

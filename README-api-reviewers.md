@@ -1,11 +1,30 @@
 # API Reviewers Configuration
 
-## Automatic Method (Recommended)
+## Fast Method (Recommended) ⚡
 
-If you have Azure CLI installed, you can automatically populate the API reviewers configuration:
+The fastest way to get current API reviewers data is using the built-in C# functionality:
+
+```bash
+# Run the built-in reviewer collector
+dotnet run --project src/gapir -- --collect-reviewers
+
+# Or use the helper script
+.\scripts\update-api-reviewers-fast.ps1
+```
+
+This method:
+- ✅ Very fast (C# native speed)
+- ✅ Analyzes recent completed PRs automatically  
+- ✅ Finds actual required reviewers from real data
+- ✅ Generates ready-to-use C# code
+- ✅ Works with existing Azure authentication
+
+## Automatic Method
+
+If you need the full Azure CLI approach, you can automatically populate the API reviewers configuration:
 
 1. Install Azure CLI if not already installed:
-   - Download from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
+   - Download from: <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli>
 
 2. Install Azure DevOps extension:
    ```bash
@@ -20,6 +39,7 @@ If you have Azure CLI installed, you can automatically populate the API reviewer
 4. Run the update script:
    ```powershell
    .\scripts\update-api-reviewers.ps1
+   # Note: This is slower than the C# method above
    ```
 
 ## Manual Method

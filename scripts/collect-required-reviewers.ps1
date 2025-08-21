@@ -55,14 +55,18 @@ try {
 # Check authentication
 Write-Host "[INFO] Checking authentication..." -ForegroundColor Yellow
 try {
-    $user = az devops user show --user me --output json 2>&1
-    if ($user -match "TF400813.*not authorized") {
-        Write-Error "[ERROR] Access denied. You need access to the Azure DevOps organization."
-        Write-Error "Visit: $Organization and ensure you can access the project."
+    # Test authentication by attempting to list repositories (simpler API call)
+    $authTestResult = $null
+    $authTestError = $null
+    $authTest = az repos list --organization $Organization --project $Project --query "[0].name" --output tsv
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "[ERROR] Authentication failed. Please run 'az login' first."
         exit 1
     }
-    $userJson = $user | ConvertFrom-Json
-    Write-Host "[OK] Authenticated as: $($userJson.displayName)" -ForegroundColor Green
+    
+    $azureUser = az account show --query user.name --output tsv
+    Write-Host "[OK] Authenticated as: $azureUser" -ForegroundColor Green
 } catch {
     Write-Error "[ERROR] Authentication failed. Please run 'az login' first."
     exit 1
