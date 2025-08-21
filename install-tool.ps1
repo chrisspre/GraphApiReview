@@ -16,20 +16,34 @@ if ($null -eq $nupkg) {
     exit 1
 }
 
-# Install the tool
-Write-Host "Installing gapir as a global .NET tool..."
-$installResult = dotnet tool install --global --add-source $nupkgOut gapir --ignore-failed-sources --no-cache 2>&1
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "gapir installed successfully as a global .NET CLI tool."
-} else {
-    # Check if it's a conflict error
-    if ($installResult -match "conflicts with an existing command") {
-        Write-Host "ERROR: You have a conflicting tool installed with command 'gapir'." -ForegroundColor Red
-        Write-Host "Please run 'dotnet tool list --global' to see installed tools," -ForegroundColor Yellow
-        Write-Host "then uninstall the conflicting tool first using 'dotnet tool uninstall --global <package-id>'" -ForegroundColor Yellow
-        exit 1
+# Install or update the tool
+Write-Host "Installing/updating gapir as a global .NET tool..."
+
+# Check if gapir is already installed
+$existingTool = dotnet tool list --global | Select-String "gapir"
+if ($existingTool) {
+    Write-Host "gapir is already installed. Updating to latest version..."
+    $updateResult = dotnet tool update --global --add-source $nupkgOut gapir --ignore-failed-sources --no-cache 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "gapir updated successfully!" -ForegroundColor Green
     } else {
-        Write-Error "Failed to install gapir as a global tool: $installResult"
+        Write-Host "Update failed. Trying uninstall and reinstall..." -ForegroundColor Yellow
+        dotnet tool uninstall --global gapir
+        $installResult = dotnet tool install --global --add-source $nupkgOut gapir --ignore-failed-sources --no-cache 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "gapir installed successfully as a global .NET CLI tool." -ForegroundColor Green
+        } else {
+            Write-Error "Failed to install gapir: $installResult"
+            exit 1
+        }
+    }
+} else {
+    Write-Host "Installing gapir for the first time..."
+    $installResult = dotnet tool install --global --add-source $nupkgOut gapir --ignore-failed-sources --no-cache 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "gapir installed successfully as a global .NET CLI tool." -ForegroundColor Green
+    } else {
+        Write-Error "Failed to install gapir: $installResult"
         exit 1
     }
 }
