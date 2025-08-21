@@ -15,7 +15,7 @@
     <PackageId>GraphApiReview</PackageId>
     <PackageVersion>1.0.0</PackageVersion>
     <Authors>Christof Sprenger</Authors>
-    <Description>gapir (Graph API review) - A CLI tool to check Azure DevOps pull requests assigned to you for review</Description>
+    <Description>gapir (Graph API Review) - A CLI tool to check Azure DevOps API Review pull requests assigned to you</Description>
     <Copyright>Copyright © 2025</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>

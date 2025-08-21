@@ -644,17 +644,17 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                 
             return currentUserReviewer.Vote switch
             {
-                10 => "APP", // Approved
-                5 => "APS", // Approved with suggestions
-                0 => "NOV", // No vote
-                -5 => "WFA", // Waiting for author (you requested changes)
-                -10 => "REJ", // Rejected
-                _ => "UNK" // Unknown
+                 10 => "Apprvd", // Approved
+                  5 => "ApprSu", // Approved with suggestions
+                  0 => "NoVote", // No vote
+                 -5 => "Wait4A", // Waiting for author (you requested changes)
+                -10 => "Reject", // Rejected
+                _   => "Unknow" // Unknown
             };
         }
         catch
         {
-            return "ERR"; // Error
+            return "Error"; // Error
         }
     }
 
@@ -706,12 +706,12 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             // Check for rejections first (highest priority) - from any reviewer
             var rejectedCount = allReviewers.Count(r => r.Vote == -10);
             if (rejectedCount > 0)
-                return "REJ"; // Rejected
+                return "Reject"; // Rejected
 
             // Check for waiting for author - from any reviewer
             var waitingForAuthorCount = allReviewers.Count(r => r.Vote == -5);
             if (waitingForAuthorCount > 0)
-                return "WFA"; // Waiting For Author
+                return "Wait4A"; // Waiting For Author
 
             // Identify API reviewers using actual group membership (preferred) or heuristics (fallback)
             List<IdentityRefWithVote> apiReviewers;
@@ -756,11 +756,11 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
 
             // If we don't have enough API approvals yet
             if (apiReviewers.Count > 0 && apiApprovedCount < apiRequiredCount)
-                return "PRA"; // Pending Reviewer Approval (API reviewers)
+                return "PendRv"; // Pending Reviewer Approval (API reviewers)
 
             // If API approvals are satisfied but non-API reviewers haven't all approved
             if (apiApprovedCount >= apiRequiredCount && nonApiTotalCount > 0 && nonApiApprovedCount < nonApiTotalCount)
-                return "POA"; // Pending Other Approvals
+                return "PendOt"; // Pending Other Approvals
 
             // If no specific API reviewers found, use general logic
             if (apiReviewers.Count == 0)
@@ -780,11 +780,11 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                     !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase));
                 
                 if (totalApproved < totalRequired)
-                    return "PRA"; // Pending Reviewer Approval (general)
+                    return "PendRv"; // Pending Reviewer Approval (general)
             }
 
             // If we get here, approvals are likely satisfied but there might be policy/build issues
-            return "POL"; // Policy/Build issues (could be build failure, branch policy, etc.)
+            return "Policy"; // Policy/Build issues (could be build failure, branch policy, etc.)
         }
         catch
         {

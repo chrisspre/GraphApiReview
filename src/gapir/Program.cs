@@ -10,12 +10,19 @@ class Program
         var rootCommand = new RootCommand("gapir (Graph API Review) - Azure DevOps Pull Request Checker")
         {
             Description = "Checks for pull requests assigned to you for review in Azure DevOps.\n\n" +
-                         "Status Codes:\n" +
-                         "  APP = Approved, APS = Approved with suggestions, NOV = No vote\n" +
-                         "  WFA = Waiting for author, REJ = Rejected\n\n" +
+                         "Status Codes (6-char mnemonics):\n" +
+                         "  Apprvd  = Approved\n" +
+                         "  ApSugst = Approved with suggestions\n" +
+                         "  NoVote  = No vote\n" +
+                         "  Wait4A  = Waiting for author\n" +
+                         "  Reject  = Rejected\n\n" +
                          "Reason Codes (for approved PRs):\n" +
-                         "  REJ = Rejected, WFA = Waiting for author, POL = Policy/build issues\n" +
-                         "  PRA = Pending reviewer approval, POA = Pending other approvals"
+                         "  Reject  = Rejected\n" +
+                         "  Wait4A  = Waiting for author\n" +
+                         "  Policy  = Policy/build issues\n" +
+                         "  PendRv  = Pending reviewer approval\n" +
+                         "  PendOt  = Pending other approvals\n\n" +
+                         "These mnemonics are used in the main table for clarity and alignment."
         };
 
         // Define options
