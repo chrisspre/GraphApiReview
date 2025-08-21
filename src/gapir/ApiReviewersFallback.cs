@@ -14,9 +14,20 @@ namespace gapir
         /// </summary>
         public static readonly HashSet<string> KnownApiReviewers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            // Placeholder entries - these would be populated by the PowerShell script
-            "example@microsoft.com",
-            "api.reviewer@microsoft.com"
+            // Email addresses
+            "chrispre@microsoft.com",
+            "chetanpatel@microsoft.com", 
+            "duchau@microsoft.com",
+            "tcleveland@microsoft.com",
+            
+            // Alternative formats that Azure DevOps might use
+            "chrispre",
+            "chetanpatel", 
+            "duchau",
+            "tcleveland",
+            
+            // If you find the exact unique names from PRs, add them here
+            // Format might be like: "Chris Pressey <chrispre@microsoft.com>"
         };
     }
 }

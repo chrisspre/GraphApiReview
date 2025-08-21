@@ -28,7 +28,7 @@ $Project = "AD-AggregatorService-Workloads"
 $GroupName = "[TEAM FOUNDATION]\Microsoft Graph API reviewers"
 
 Write-Host "Azure DevOps API Reviewers Configuration Updater" -ForegroundColor Cyan
-Write-Host "=" * 60
+Write-Host ("=" * 60)
 
 # Check if Azure CLI is installed
 try {
@@ -36,7 +36,7 @@ try {
     Write-Host "[OK] Azure CLI found: $($azVersion.'azure-cli')" -ForegroundColor Green
 } catch {
     Write-Error "[ERROR] Azure CLI not found. Please install Azure CLI first: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
-     winget install --id $packageId --exact --silent
+    Write-Error 'winget install --id "Microsoft.AzureCLI" --exact --silent'
     exit 1
 }
 
@@ -69,71 +69,141 @@ try {
 }
 
 # Check authentication
+Write-Host "[INFO] Checking Azure authentication..." -ForegroundColor Yellow
+try {
+    # First check if we're logged into Azure at all
+    $azAccount = az account show --output json 2>$null | ConvertFrom-Json
+    if (-not $azAccount) {
+        Write-Host "[WARN] Not logged into Azure. Running 'az login'..." -ForegroundColor Yellow
+        az login
+        Write-Host "[OK] Azure login completed" -ForegroundColor Green
+    } else {
+        Write-Host "[OK] Already logged into Azure as: $($azAccount.user.name)" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "[WARN] Azure authentication check failed. Running 'az login'..." -ForegroundColor Yellow
+    az login
+    Write-Host "[OK] Azure login completed" -ForegroundColor Green
+}
+
+# Check Azure DevOps authentication
 Write-Host "[INFO] Checking Azure DevOps authentication..." -ForegroundColor Yellow
 try {
-    $user = az devops user show --user me --output json | ConvertFrom-Json
-    Write-Host "[OK] Authenticated as: $($user.displayName) ($($user.mailAddress))" -ForegroundColor Green
+    $user = az devops user show --user me --output json 2>&1 | ConvertFrom-Json
+    Write-Host "[OK] Authenticated to Azure DevOps as: $($user.displayName) ($($user.mailAddress))" -ForegroundColor Green
 } catch {
-    Write-Error "[ERROR] Not authenticated with Azure DevOps. Please run 'az login' first."
+    $errorOutput = $_.Exception.Message
+    if ($errorOutput -match "TF400813.*not authorized" -or $errorOutput -match "not authorized to access this resource") {
+        Write-Error "[ERROR] Access denied to Azure DevOps organization."
+        Write-Error ""
+        Write-Error "This usually means one of the following:"
+        Write-Error "1. You don't have access to the organization: $Organization"
+        Write-Error "2. You need to be added to the project: $Project"
+        Write-Error "3. Your account needs 'Basic' access level (not 'Stakeholder')"
+        Write-Error "4. You may need to accept an invitation to the organization"
+        Write-Error ""
+        Write-Error "To fix this:"
+        Write-Error "1. Ask an admin to invite you to: $Organization"
+        Write-Error "2. Ensure you have 'Basic' or 'Basic + Test Plans' access level"
+        Write-Error "3. Try logging in to the web portal first: $Organization"
+        Write-Error "4. Then re-run this script"
+    } else {
+        Write-Error "[ERROR] Authentication issue with Azure DevOps."
+        Write-Error ""
+        Write-Error "You're logged into Azure, but DevOps access isn't working. Try:"
+        Write-Error "1. Visit the organization in your browser first: $Organization"
+        Write-Error "2. Make sure you can access it in the web interface"
+        Write-Error "3. Then try running this script again"
+        Write-Error ""
+        Write-Error "If that doesn't work:"
+        Write-Error "4. Try: az logout && az login --allow-no-subscriptions"
+        Write-Error "5. Ensure you have access to: $Organization"
+    }
     exit 1
 }
 
 # List all security groups to find the target group
 Write-Host "[INFO] Searching for API reviewers group..." -ForegroundColor Yellow
 try {
-    $groups = az devops security group list --output json | ConvertFrom-Json
-    $apiGroup = $groups.graphGroups | Where-Object { $_.displayName -eq $GroupName }
+    $groups = az devops security group list --output json 2>&1
     
-    if (-not $apiGroup) {
-        Write-Warning "[WARN] Group '$GroupName' not found."
-        Write-Host "Available groups:" -ForegroundColor Cyan
-        $groups.graphGroups | Where-Object { $_.displayName -like "*API*" -or $_.displayName -like "*review*" } | 
-            ForEach-Object { Write-Host "  - $($_.displayName)" -ForegroundColor Gray }
-        exit 1
+    # Check if we got an authorization error
+    if ($groups -match "TF400813.*not authorized") {
+        Write-Warning "[WARN] Insufficient permissions to list security groups via CLI."
+        Write-Host "This is common - the CLI requires special collection-level permissions that regular users don't have." -ForegroundColor Yellow
+        Write-Host "Even though you can see groups in the web portal, the CLI has stricter requirements." -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "MANUAL WORKAROUND:" -ForegroundColor Cyan
+        Write-Host "1. Go to: $Organization/$Project/_settings/security" -ForegroundColor Gray
+        Write-Host "2. Find the group: $GroupName" -ForegroundColor Gray
+        Write-Host "3. Click on it to see the members" -ForegroundColor Gray
+        Write-Host "4. Manually edit: $OutputPath" -ForegroundColor Gray
+        Write-Host "5. Add member email addresses to the KnownApiReviewers HashSet" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "Creating empty fallback class for manual population..." -ForegroundColor Yellow
+        $reviewers = @()
+    } else {
+        $groupsJson = $groups | ConvertFrom-Json
+        $apiGroup = $groupsJson.graphGroups | Where-Object { $_.displayName -eq $GroupName }
+        
+        if (-not $apiGroup) {
+            Write-Warning "[WARN] Group '$GroupName' not found."
+            Write-Host "Available groups:" -ForegroundColor Cyan
+            $groupsJson.graphGroups | Where-Object { $_.displayName -like "*API*" -or $_.displayName -like "*review*" } | 
+                ForEach-Object { Write-Host "  - $($_.displayName)" -ForegroundColor Gray }
+            exit 1
+        }
+        
+        Write-Host "[OK] Found group: $($apiGroup.displayName)" -ForegroundColor Green
+        Write-Host "      Group ID: $($apiGroup.descriptor)" -ForegroundColor Gray
     }
-    
-    Write-Host "[OK] Found group: $($apiGroup.displayName)" -ForegroundColor Green
-    Write-Host "      Group ID: $($apiGroup.descriptor)" -ForegroundColor Gray
 } catch {
     Write-Error "[ERROR] Failed to list security groups: $($_.Exception.Message)"
-    exit 1
+    Write-Host "Creating empty fallback class for manual population..." -ForegroundColor Yellow
+    $reviewers = @()
+    $apiGroup = $null
 }
 
 # Get group members
-Write-Host "[INFO] Fetching group members..." -ForegroundColor Yellow
-try {
-    $members = az devops security group membership list --id $apiGroup.descriptor --output json | ConvertFrom-Json
-    
-    if (-not $members -or $members.Count -eq 0) {
-        Write-Warning "[WARN] No members found in group or insufficient permissions to read group membership"
-        Write-Host "This may be due to permission restrictions on nested groups." -ForegroundColor Yellow
-        $reviewers = @()
-    } else {
-        # Extract user information
-        $reviewers = @()
-        foreach ($member in $members) {
-            if ($member.subjectKind -eq "user") {
-                # Collect all possible identifiers for each user
-                $identifiers = @()
-                if ($member.descriptor) { $identifiers += "`"$($member.descriptor)`"" }
-                if ($member.mailAddress) { $identifiers += "`"$($member.mailAddress)`"" }
-                if ($member.uniqueName) { $identifiers += "`"$($member.uniqueName)`"" }
-                
-                $reviewers += @{
-                    displayName = $member.displayName
-                    identifiers = $identifiers
+if ($apiGroup) {
+    Write-Host "[INFO] Fetching group members..." -ForegroundColor Yellow
+    try {
+        $members = az devops security group membership list --id $apiGroup.descriptor --output json | ConvertFrom-Json
+        
+        if (-not $members -or $members.Count -eq 0) {
+            Write-Warning "[WARN] No members found in group or insufficient permissions to read group membership"
+            Write-Host "This may be due to permission restrictions on nested groups." -ForegroundColor Yellow
+            $reviewers = @()
+        } else {
+            # Extract user information
+            $reviewers = @()
+            foreach ($member in $members) {
+                if ($member.subjectKind -eq "user") {
+                    # Collect all possible identifiers for each user
+                    $identifiers = @()
+                    if ($member.descriptor) { $identifiers += "`"$($member.descriptor)`"" }
+                    if ($member.mailAddress) { $identifiers += "`"$($member.mailAddress)`"" }
+                    if ($member.uniqueName) { $identifiers += "`"$($member.uniqueName)`"" }
+                    
+                    $reviewers += @{
+                        displayName = $member.displayName
+                        identifiers = $identifiers
+                    }
                 }
             }
+            
+            Write-Host "[OK] Found $($reviewers.Count) API reviewers" -ForegroundColor Green
+            foreach ($reviewer in $reviewers) {
+                Write-Host "      - $($reviewer.displayName)" -ForegroundColor Gray
+            }
         }
-        
-        Write-Host "[OK] Found $($reviewers.Count) API reviewers" -ForegroundColor Green
-        foreach ($reviewer in $reviewers) {
-            Write-Host "      - $($reviewer.displayName)" -ForegroundColor Gray
-        }
+    } catch {
+        Write-Warning "[WARN] Failed to fetch group members: $($_.Exception.Message)"
+        Write-Host "Creating empty fallback class - you may need to manually populate it." -ForegroundColor Yellow
+        $reviewers = @()
     }
-} catch {
-    Write-Warning "[WARN] Failed to fetch group members: $($_.Exception.Message)"
-    Write-Host "Creating empty fallback class - you may need to manually populate it." -ForegroundColor Yellow
+} else {
+    # No group found due to permissions, create empty reviewers array
     $reviewers = @()
 }
 
