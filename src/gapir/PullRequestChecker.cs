@@ -17,7 +17,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
     private const string OrganizationUrl = "https://msazure.visualstudio.com/";
     private const string ProjectName = "One";
     private const string RepositoryName = "AD-AggregatorService-Workloads";
-    private const string ApiReviewersGroupName = "[TEAM FOUNDATION]\\SCIM API reviewers";
+    private const string ApiReviewersGroupName = "[TEAM FOUNDATION]\\Microsoft Graph API reviewers";
 
     public async Task RunAsync()
     {
@@ -66,7 +66,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
 
             var apiGroup = searchResults?.FirstOrDefault(i => 
                 i.DisplayName?.Equals(ApiReviewersGroupName, StringComparison.OrdinalIgnoreCase) == true ||
-                i.DisplayName?.Contains("SCIM API reviewers", StringComparison.OrdinalIgnoreCase) == true);
+                i.DisplayName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true);
 
             if (apiGroup != null)
             {
@@ -166,14 +166,14 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
     {
         try
         {
-            // Try searching for just "SCIM API reviewers" without the prefix
+            // Try searching for just "Microsoft Graph API reviewers" without the prefix
             var altSearchResults = await identityClient.ReadIdentitiesAsync(
                 IdentitySearchFilter.General,
-                "SCIM API reviewers",
+                "Microsoft Graph API reviewers",
                 queryMembership: QueryMembership.Expanded);
 
             var altApiGroup = altSearchResults?.FirstOrDefault(i => 
-                i.DisplayName?.Contains("SCIM API reviewers", StringComparison.OrdinalIgnoreCase) == true);
+                i.DisplayName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true);
 
             if (altApiGroup?.MemberIds?.Any() == true)
             {
@@ -191,11 +191,11 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             {
                 var accountSearchResults = await identityClient.ReadIdentitiesAsync(
                     IdentitySearchFilter.AccountName,
-                    "SCIM API reviewers",
+                    "Microsoft Graph API reviewers",
                     queryMembership: QueryMembership.Expanded);
                 
                 var accountApiGroup = accountSearchResults?.FirstOrDefault(i => 
-                    i.DisplayName?.Contains("SCIM API reviewers", StringComparison.OrdinalIgnoreCase) == true);
+                    i.DisplayName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true);
                 
                 if (accountApiGroup?.MemberIds?.Any() == true)
                 {
@@ -284,7 +284,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
         var lowerUniqueName = uniqueName?.ToLowerInvariant() ?? "";
         
         // Look for API-related terms in names or emails
-        var apiTerms = new[] { "api", "scim", "graph", "review", "architect", "platform" };
+        var apiTerms = new[] { "api", "graph", "review", "architect", "platform" };
         var exclusionTerms = new[] { "test", "automation", "bot", "build" };
         
         // Check if name/email contains API-related terms
@@ -413,14 +413,13 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             }
 
             // Prepare table data for pending PRs
-            var pendingHeaders = new[] { "Title", "Author", "Assigned", "Ratio", "Status", "API", "Last By", "URL" };
-            var pendingMaxWidths = new[] { 30, 18, 10, 8, 6, 6, 8, -1 }; // -1 means no limit for URLs
+            var pendingHeaders = new[] { "Title", "Author", "Assigned", "Status", "Ratio", "Last By", "URL" };
+            var pendingMaxWidths = new[] { 30, 18, 10, 6, 6, 8, -1 }; // -1 means no limit for URLs
 
             var pendingRows = new List<string[]>();
             foreach (var pr in pendingPullRequests)
             {
                 var timeAssigned = GetTimeAssignedToReviewer(pr, currentUser.Id);
-                var approvalRatio = GetApprovalRatio(pr);
                 var url = GetFullPullRequestUrl(pr, _options.UseShortUrls);
                 var myVoteStatus = GetMyVoteStatus(pr, currentUser.Id, currentUser.DisplayName);
                 var apiApprovalRatio = GetApiApprovalRatio(pr, apiReviewersMembers);
@@ -430,7 +429,6 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                     ShortenTitle(pr.Title),
                     pr.CreatedBy.DisplayName,
                     timeAssigned,
-                    approvalRatio,
                     myVoteStatus,
                     apiApprovalRatio,
                     lastActivity,
@@ -661,32 +659,6 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
         }
     }
 
-    private static string GetApprovalRatio(GitPullRequest pr)
-    {
-        try
-        {
-            if (pr.Reviewers?.Length == 0) { return "0/0"; }
-
-            // Filter out system accounts and get human reviewers only
-            var humanReviewers = pr.Reviewers?.Where(r =>
-                !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
-                !r.DisplayName.StartsWith($"[{ProjectName}]") &&
-                !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
-                !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
-                !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase)
-            ).ToList();
-
-            var totalReviewers = humanReviewers?.Count;
-            var approvedCount = humanReviewers?.Count(r => r.Vote >= 5); // 5 = approved with suggestions, 10 = approved
-
-            return $"{approvedCount}/{totalReviewers}";
-        }
-        catch
-        {
-            return "?/?";
-        }
-    }
-
     private static string FormatTimeDifference(TimeSpan timeDiff)
     {
         if (timeDiff.TotalDays >= 1)
@@ -810,7 +782,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             // For now, we'll use a conservative approach
             if (lowerUniqueName.Contains("apireview") || 
                 lowerUniqueName.Contains("api-review") ||
-                lowerUniqueName.Contains("scim"))
+                lowerUniqueName.Contains("graph"))
             {
                 return true;
             }
@@ -821,7 +793,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
         {
             var lowerDisplayName = displayName.ToLowerInvariant();
             if (lowerDisplayName.Contains("api review") || 
-                lowerDisplayName.Contains("scim"))
+                lowerDisplayName.Contains("graph"))
             {
                 return true;
             }
