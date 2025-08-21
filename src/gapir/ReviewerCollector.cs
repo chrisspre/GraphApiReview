@@ -44,7 +44,7 @@ public class ReviewerCollector
             Console.WriteLine($"[OK] Found {prs.Count} completed pull requests");
             Console.WriteLine("[INFO] Analyzing required reviewers...");
 
-            var reviewerCounts = new Dictionary<string, int>();
+            var reviewerCounts = new Dictionary<string, (int count, string displayName)>();
 
             foreach (var pr in prs)
             {
@@ -68,7 +68,15 @@ public class ReviewerCollector
                                 var reviewerKey = GetReviewerKey(reviewer);
                                 if (!string.IsNullOrEmpty(reviewerKey))
                                 {
-                                    reviewerCounts[reviewerKey] = reviewerCounts.GetValueOrDefault(reviewerKey, 0) + 1;
+                                    var displayName = reviewer.DisplayName ?? reviewerKey;
+                                    if (reviewerCounts.ContainsKey(reviewerKey))
+                                    {
+                                        reviewerCounts[reviewerKey] = (reviewerCounts[reviewerKey].count + 1, displayName);
+                                    }
+                                    else
+                                    {
+                                        reviewerCounts[reviewerKey] = (1, displayName);
+                                    }
                                 }
                             }
                         }
@@ -85,11 +93,11 @@ public class ReviewerCollector
 
             // Sort by frequency
             var sortedReviewers = reviewerCounts
-                .OrderByDescending(kvp => kvp.Value)
+                .OrderByDescending(kvp => kvp.Value.count)
                 .ToList();
 
             Console.WriteLine("[INFO] Required reviewers found:");
-            foreach (var (reviewer, count) in sortedReviewers.Take(20)) // Show top 20
+            foreach (var (reviewer, (count, displayName)) in sortedReviewers.Take(20)) // Show top 20
             {
                 Console.WriteLine($"  {reviewer} - Required in {count} PRs");
             }
@@ -136,7 +144,7 @@ public class ReviewerCollector
         return input.Length <= maxLength ? input : input.Substring(0, maxLength - 3) + "...";
     }
 
-    private static void GenerateCSharpCode(List<KeyValuePair<string, int>> sortedReviewers)
+    private static void GenerateCSharpCode(List<KeyValuePair<string, (int count, string displayName)>> sortedReviewers)
     {
         var sb = new StringBuilder();
         
@@ -151,12 +159,18 @@ public class ReviewerCollector
         var emailReviewers = new List<string>();
         var groupReviewers = new List<string>();
         
-        foreach (var (reviewer, count) in sortedReviewers)
+        foreach (var (reviewer, (count, displayName)) in sortedReviewers)
         {
             // Filter to focus on likely API reviewers
             if (reviewer.Contains("@microsoft.com"))
             {
-                emailReviewers.Add($"    \"{reviewer}\", // Required in {count} PRs");
+                // Add display name if it's different from email and meaningful
+                var nameComment = "";
+                if (!string.IsNullOrEmpty(displayName) && displayName != reviewer && !displayName.Equals(reviewer, StringComparison.OrdinalIgnoreCase))
+                {
+                    nameComment = $" ({displayName})";
+                }
+                emailReviewers.Add($"    \"{reviewer}\", // Required in {count} PRs{nameComment}");
             }
             else if (reviewer.Contains("API") || reviewer.Contains("Graph") || reviewer.Contains("reviewers"))
             {
