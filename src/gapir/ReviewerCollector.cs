@@ -10,15 +10,8 @@ public class ReviewerCollector
     private const string Organization = "https://dev.azure.com/msazure";
     private const string Project = "One";
     
-    // List of repositories to analyze for API reviewers
-    private static readonly string[] RepositoriesToAnalyze = new[]
-    {
-        "AD-AggregatorService-Workloads",
-        "MSGraph-AI", 
-        "msgraph-bicep-types-ADO",
-        "SecEng-GraphSecurityApi",
-        "EngSys-Prototypes-TestGraphAPI"
-    };
+    // Repository to analyze for API reviewers
+    private const string RepositoryToAnalyze = "AD-AggregatorService-Workloads";
     
     private const int MaxPrsToAnalyze = 100;
 
@@ -40,98 +33,95 @@ public class ReviewerCollector
             var gitClient = connection.GetClient<GitHttpClient>();
             var reviewerCounts = new Dictionary<string, (int count, string displayName)>();
 
-            foreach (var repository in RepositoriesToAnalyze)
+            Console.WriteLine($"\n[INFO] Analyzing repository: {RepositoryToAnalyze}");
+            Console.WriteLine($"[INFO] Fetching recent pull requests (limit: {MaxPrsToAnalyze})...");
+            
+            try
             {
-                Console.WriteLine($"\n[INFO] Analyzing repository: {repository}");
-                Console.WriteLine($"[INFO] Fetching recent pull requests (limit: {MaxPrsToAnalyze})...");
+                // Get recent completed PRs
+                var prs = await gitClient.GetPullRequestsAsync(
+                    project: Project,
+                    repositoryId: RepositoryToAnalyze,
+                    searchCriteria: new GitPullRequestSearchCriteria
+                    {
+                        Status = PullRequestStatus.Completed
+                    },
+                    top: MaxPrsToAnalyze);
+
+                Console.WriteLine($"[OK] Found {prs.Count} completed pull requests in {RepositoryToAnalyze}");
                 
-                try
+                if (prs.Count == 0)
                 {
-                    // Get recent completed PRs
-                    var prs = await gitClient.GetPullRequestsAsync(
-                        project: Project,
-                        repositoryId: repository,
-                        searchCriteria: new GitPullRequestSearchCriteria
-                        {
-                            Status = PullRequestStatus.Completed
-                        },
-                        top: MaxPrsToAnalyze);
+                    Console.WriteLine($"[SKIP] No PRs found in {RepositoryToAnalyze}, skipping...");
+                    return;
+                }
 
-                    Console.WriteLine($"[OK] Found {prs.Count} completed pull requests in {repository}");
-                    
-                    if (prs.Count == 0)
+                Console.WriteLine("[INFO] Analyzing required reviewers...");
+                int apiReviewPrsFound = 0;
+
+                foreach (var pr in prs)
+                {
+                    try
                     {
-                        Console.WriteLine($"[SKIP] No PRs found in {repository}, skipping...");
-                        continue;
-                    }
+                        // Get detailed PR with reviewers
+                        var detailedPr = await gitClient.GetPullRequestAsync(
+                            project: Project,
+                            repositoryId: RepositoryToAnalyze,
+                            pullRequestId: pr.PullRequestId);
 
-                    Console.WriteLine("[INFO] Analyzing required reviewers...");
-                    int apiReviewPrsFound = 0;
-
-                    foreach (var pr in prs)
-                    {
-                        try
+                        if (detailedPr?.Reviewers != null)
                         {
-                            // Get detailed PR with reviewers
-                            var detailedPr = await gitClient.GetPullRequestAsync(
-                                project: Project,
-                                repositoryId: repository,
-                                pullRequestId: pr.PullRequestId);
+                            // First check if this PR has the "Microsoft Graph API reviewers" group assigned
+                            bool hasApiReviewersGroup = detailedPr.Reviewers.Any(r => 
+                                r.DisplayName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true ||
+                                r.UniqueName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true);
 
-                            if (detailedPr?.Reviewers != null)
+                            if (!hasApiReviewersGroup)
                             {
-                                // First check if this PR has the "Microsoft Graph API reviewers" group assigned
-                                bool hasApiReviewersGroup = detailedPr.Reviewers.Any(r => 
-                                    r.DisplayName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true ||
-                                    r.UniqueName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true);
+                                // Skip this PR - it's not an API review PR
+                                continue;
+                            }
 
-                                if (!hasApiReviewersGroup)
+                            apiReviewPrsFound++;
+                            Console.WriteLine($"  API Review PR #{pr.PullRequestId}: {TruncateString(pr.Title, 50)}...");
+
+                            foreach (var reviewer in detailedPr.Reviewers)
+                            {
+                                // Only consider individual reviewers (exclude groups and tools)
+                                var reviewerKey = GetReviewerKey(reviewer);
+                                if (!string.IsNullOrEmpty(reviewerKey))
                                 {
-                                    // Skip this PR - it's not an API review PR
-                                    continue;
-                                }
-
-                                apiReviewPrsFound++;
-                                Console.WriteLine($"  API Review PR #{pr.PullRequestId}: {TruncateString(pr.Title, 50)}...");
-
-                                foreach (var reviewer in detailedPr.Reviewers)
-                                {
-                                    // Only consider individual reviewers (exclude groups and tools)
-                                    var reviewerKey = GetReviewerKey(reviewer);
-                                    if (!string.IsNullOrEmpty(reviewerKey))
+                                    // Consider a reviewer "required" if they are marked as required OR they provided approval/feedback
+                                    if (reviewer.IsRequired == true || reviewer.Vote > 0)
                                     {
-                                        // Consider a reviewer "required" if they are marked as required OR they provided approval/feedback
-                                        if (reviewer.IsRequired == true || reviewer.Vote > 0)
+                                        var displayName = reviewer.DisplayName ?? reviewerKey ?? "Unknown";
+                                        if (reviewerCounts.ContainsKey(reviewerKey))
                                         {
-                                            var displayName = reviewer.DisplayName ?? reviewerKey ?? "Unknown";
-                                            if (reviewerCounts.ContainsKey(reviewerKey))
-                                            {
-                                                reviewerCounts[reviewerKey] = (reviewerCounts[reviewerKey].count + 1, displayName);
-                                            }
-                                            else
-                                            {
-                                                reviewerCounts[reviewerKey] = (1, displayName);
-                                            }
+                                            reviewerCounts[reviewerKey] = (reviewerCounts[reviewerKey].count + 1, displayName);
+                                        }
+                                        else
+                                        {
+                                            reviewerCounts[reviewerKey] = (1, displayName);
                                         }
                                     }
                                 }
                             }
                         }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"    [WARNING] Failed to analyze PR #{pr.PullRequestId}: {ex.Message}");
-                        }
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"    [WARNING] Failed to analyze PR #{pr.PullRequestId}: {ex.Message}");
+                    }
+                }
 
-                    Console.WriteLine($"[INFO] Found {apiReviewPrsFound} API review PRs in {repository}");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[ERROR] Failed to access repository {repository}: {ex.Message}");
-                }
+                Console.WriteLine($"[INFO] Found {apiReviewPrsFound} API review PRs in {RepositoryToAnalyze}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to access repository {RepositoryToAnalyze}: {ex.Message}");
             }
 
-            Console.WriteLine($"\n[OK] Analysis complete across all repositories, found {reviewerCounts.Count} unique API reviewers from API review PRs");
+            Console.WriteLine($"\n[OK] Analysis complete, found {reviewerCounts.Count} unique API reviewers from API review PRs");
             Console.WriteLine();
 
             // Sort by frequency

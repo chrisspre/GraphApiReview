@@ -10,7 +10,7 @@ The gapir tool shows a "Ratio" column that displays the approval ratio from Micr
 
 ### Prerequisites
 
-1. **Azure CLI**: Install from https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
+1. **Azure CLI**: Install from [/install-azure-cli](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 2. **Azure DevOps Extension**: Install with `az extension add --name azure-devops`
 3. **Authentication**: Log in with `az login`
 4. **DevOps Configuration**: Set defaults with:

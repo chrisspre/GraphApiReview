@@ -9,7 +9,7 @@ using gapir.Utilities;
 public class PullRequestChecker(PullRequestCheckerOptions options)
 {
     private readonly PullRequestCheckerOptions _options = options ?? throw new ArgumentNullException(nameof(options));
-    
+
     // Cache for API reviewers group members to avoid repeated API calls
     private HashSet<string>? _apiReviewersMembers;
 
@@ -26,7 +26,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
         Console.WriteLine();
 
         VssConnection? connection;
-        
+
         // Authentication phase
         using (var authSpinner = new Spinner("Authenticating with Azure DevOps..."))
         {
@@ -37,7 +37,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                 authSpinner.Error("Authentication failed");
                 return;
             }
-            
+
             authSpinner.Success("Authentication successful");
         }
 
@@ -55,25 +55,25 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
         try
         {
             var identityClient = connection.GetClient<IdentityHttpClient>();
-            
+
             Log.Information($"Fetching API reviewers group: {ApiReviewersGroupName}");
-            
+
             // Step 1: Find the group by exact name
             var searchResults = await identityClient.ReadIdentitiesAsync(
                 IdentitySearchFilter.General,
                 ApiReviewersGroupName,
                 queryMembership: QueryMembership.None);
 
-            var apiGroup = searchResults?.FirstOrDefault(i => 
+            var apiGroup = searchResults?.FirstOrDefault(i =>
                 i.DisplayName?.Equals(ApiReviewersGroupName, StringComparison.OrdinalIgnoreCase) == true);
 
             if (apiGroup != null)
             {
                 Log.Information($"Found group: {apiGroup.DisplayName}, Id: {apiGroup.Id}");
-                
+
                 // Step 2: Get group members with recursive expansion
                 _apiReviewersMembers = await ExpandGroupMembersRecursively(identityClient, apiGroup.Id);
-                
+
                 Log.Information($"Found {_apiReviewersMembers.Count} API reviewers via group membership");
             }
             else
@@ -81,7 +81,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                 Log.Warning($"Group '{ApiReviewersGroupName}' not found");
                 _apiReviewersMembers = new HashSet<string>();
             }
-            
+
             // Step 3: Use static fallback if no members found
             if (_apiReviewersMembers.Count == 0)
             {
@@ -103,9 +103,9 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
     {
         var allMembers = new HashSet<string>();
         var processedGroups = new HashSet<Guid>();
-        
+
         await ExpandGroupMembersRecursivelyInternal(identityClient, groupId, allMembers, processedGroups);
-        
+
         return allMembers;
     }
 
@@ -114,21 +114,21 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
         // Avoid infinite recursion
         if (processedGroups.Contains(groupId))
             return;
-            
+
         processedGroups.Add(groupId);
-        
+
         try
         {
             // Try to get group with expanded membership
             var group = await identityClient.ReadIdentityAsync(groupId, QueryMembership.Expanded);
-            
+
             if (group?.Members?.Any() == true)
             {
                 foreach (var member in group.Members)
                 {
                     // Use the identifier string to determine type
                     var identifier = member.Identifier;
-                    
+
                     // If the identifier looks like a GUID, it might be a nested group
                     if (Guid.TryParse(identifier, out var memberGuid))
                     {
@@ -136,7 +136,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                         {
                             // Try to read this member to see if it's a group
                             var memberIdentity = await identityClient.ReadIdentityAsync(memberGuid, QueryMembership.None);
-                            
+
                             // Check if this is a group by looking at the descriptor
                             if (memberIdentity?.Descriptor?.Identifier?.StartsWith("vssgp.") == true)
                             {
@@ -230,11 +230,11 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             // Get repository and pull requests
             GitRepository repository;
             List<GitPullRequest> pullRequests;
-            
+
             using (var prSpinner = new Spinner("Fetching pull requests..."))
             {
                 repository = await gitClient.GetRepositoryAsync(ProjectName, RepositoryName);
-                
+
                 var searchCriteria = new GitPullRequestSearchCriteria()
                 {
                     Status = PullRequestStatus.Active,
@@ -247,7 +247,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
 
             // Process the results
             Console.WriteLine("Analyzing pull request statuses...");
-            
+
             // Separate PRs into approved and pending
             var approvedPullRequests = new List<GitPullRequest>();
             var pendingPullRequests = new List<GitPullRequest>();
@@ -275,12 +275,12 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                 Console.WriteLine("Reason why PR is not completed: ");
                 Console.WriteLine("    REJ=Rejected, WFA=Waiting For Author, POL=Policy/Build Issues");
                 Console.WriteLine("    PRA=Pending Reviewer Approval, POA=Pending Other Approvals");
-                
+
 
                 // Prepare table data - adjust headers based on detailed timing flag
                 string[] headers;
                 int[] maxWidths;
-                
+
                 if (_options.ShowDetailedTiming)
                 {
                     headers = new[] { "Author", "Title", "Why", "Age", "URL" };
@@ -301,7 +301,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                     if (_options.ShowDetailedTiming)
                     {
                         var age = FormatTimeDifferenceDays(DateTime.UtcNow - pr.CreationDate);
-                        
+
                         rows.Add([pr.CreatedBy.DisplayName, ShortenTitle(pr.Title), reason, age, url]);
                     }
                     else
@@ -550,18 +550,18 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             var currentUserReviewer = pr.Reviewers?.FirstOrDefault(r =>
                 r.Id.Equals(currentUserId) ||
                 r.DisplayName.Equals(currentUserDisplayName, StringComparison.OrdinalIgnoreCase));
-            
+
             if (currentUserReviewer == null)
                 return "---"; // Not a reviewer
-                
+
             return currentUserReviewer.Vote switch
             {
-                 10 => "Apprvd", // Approved
-                  5 => "ApSugg", // Approved with suggestions
-                  0 => "NoVote", // No vote
-                 -5 => "Wait4A", // Waiting for author (you requested changes)
+                10 => "Apprvd", // Approved
+                5 => "ApSugg", // Approved with suggestions
+                0 => "NoVote", // No vote
+                -5 => "Wait4A", // Waiting for author (you requested changes)
                 -10 => "Reject", // Rejected
-                _   => "Unknow" // Unknown
+                _ => "Unknow" // Unknown
             };
         }
         catch
@@ -588,7 +588,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
         {
             // Check if there are any reviewers and get all reviewers
             var allReviewers = pr.Reviewers?.ToList() ?? new List<IdentityRefWithVote>();
-            
+
             // Check for rejections first (highest priority) - from any reviewer
             var rejectedCount = allReviewers.Count(r => r.Vote == -10);
             if (rejectedCount > 0)
@@ -605,7 +605,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
 
             // Use group membership data - convert Guid to string for comparison
             apiReviewers = allReviewers.Where(r => apiReviewersMembers.Contains(r.Id.ToString())).ToList();
-            nonApiReviewers = allReviewers.Where(r => 
+            nonApiReviewers = allReviewers.Where(r =>
                 !apiReviewersMembers.Contains(r.Id.ToString()) &&
                 !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
                 !r.DisplayName.StartsWith($"[{ProjectName}]") &&
@@ -633,20 +633,20 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             // If no specific API reviewers found, use general logic
             if (apiReviewers.Count == 0)
             {
-                var totalApproved = allReviewers.Count(r => r.Vote >= 5 && 
+                var totalApproved = allReviewers.Count(r => r.Vote >= 5 &&
                     !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
                     !r.DisplayName.StartsWith($"[{ProjectName}]") &&
                     !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
                     !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
                     !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase));
-                
-                var totalRequired = allReviewers.Count(r => 
+
+                var totalRequired = allReviewers.Count(r =>
                     !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
                     !r.DisplayName.StartsWith($"[{ProjectName}]") &&
                     !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
                     !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
                     !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase));
-                
+
                 if (totalApproved < totalRequired)
                     return "PendRv"; // Pending Reviewer Approval (general)
             }
@@ -676,12 +676,15 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             if (apiReviewersMembers.Count == 0)
                 return "?/?"; // No API reviewers data available
 
-            // Filter to only API reviewers
-            var apiReviewers = pr.Reviewers?.Where(r => apiReviewersMembers.Contains(r.Id.ToString())).ToList();
-            
-            if (apiReviewers == null || apiReviewers.Count == 0)
-                return "0/0"; // No API reviewers assigned
+            // Filter to only API reviewers - check both email addresses and unique names
+            var apiReviewers = pr.Reviewers?.Where(r => 
+                apiReviewersMembers.Contains(r.UniqueName) || 
+                apiReviewersMembers.Contains(r.Id.ToString())).ToList();
 
+            if (apiReviewers == null || apiReviewers.Count == 0)
+            {
+                return "0/0"; // No API reviewers assigned
+            }
             var approvedCount = apiReviewers.Count(r => r.Vote >= 5); // 5 = approved with suggestions, 10 = approved
             var totalCount = apiReviewers.Count;
 
@@ -699,7 +702,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
         {
             // Get PR threads to find the most recent activity
             var threads = await gitClient.GetThreadsAsync(repositoryId, pr.PullRequestId);
-            
+
             if (threads?.Any() != true)
                 return "Author"; // Default to author if no threads
 
@@ -714,7 +717,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                 return "Author"; // Default to author
 
             var authorId = mostRecentThread.Author.Id;
-            
+
             // Check if it's the current user
             if (authorId.ToString() == currentUserId.ToString())
                 return "Me";
