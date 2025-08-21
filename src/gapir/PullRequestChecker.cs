@@ -413,8 +413,8 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             }
 
             // Prepare table data for pending PRs
-            var pendingHeaders = new[] { "Title", "Author", "Assigned", "Ratio", "Status", "ID", "URL" };
-            var pendingMaxWidths = new[] { 30, 18, 10, 8, 6, 8, -1 }; // -1 means no limit for URLs
+            var pendingHeaders = new[] { "Title", "Author", "Assigned", "Ratio", "Status", "URL" };
+            var pendingMaxWidths = new[] { 30, 18, 10, 8, 6, -1 }; // -1 means no limit for URLs
 
             var pendingRows = new List<string[]>();
             foreach (var pr in pendingPullRequests)
@@ -430,7 +430,6 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                     timeAssigned,
                     approvalRatio,
                     myVoteStatus,
-                    pr.PullRequestId.ToString(),
                     url
                 ]);
             }
@@ -645,7 +644,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             return currentUserReviewer.Vote switch
             {
                  10 => "Apprvd", // Approved
-                  5 => "ApprSu", // Approved with suggestions
+                  5 => "ApSugg", // Approved with suggestions
                   0 => "NoVote", // No vote
                  -5 => "Wait4A", // Waiting for author (you requested changes)
                 -10 => "Reject", // Rejected

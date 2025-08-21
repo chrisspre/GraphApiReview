@@ -2,10 +2,11 @@
 $ErrorActionPreference = 'Stop'
 
 Write-Host "Building kurz..."
-dotnet build ./src/kurz/kurz.csproj -c Release
+dotnet build "$PSScriptRoot/src/kurz/kurz.csproj" -c Release
 
 Write-Host "Installing Windows Service..."
-$serviceExe = Get-ChildItem -Path ./src/kurz/bin/Release -Recurse -Filter kurz.exe | Select-Object -First 1
+$kurzBinPath = Join-Path $PSScriptRoot 'src/kurz/bin/Release'
+$serviceExe = Get-ChildItem -Path $kurzBinPath -Recurse -Filter kurz.exe | Select-Object -First 1
 if ($null -eq $serviceExe) {
     Write-Error "kurz.exe not found in build output."
     exit 1
