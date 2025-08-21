@@ -22,11 +22,9 @@ class Program
                          "  Policy  = Policy/build issues\n" +
                          "  PendRv  = Pending reviewer approval\n" +
                          "  PendOt  = Pending other approvals\n\n" +
-                         "Activity Codes:\n" +
-                         "  None    = No recent activity\n" +
-                         "  Low     = 1-2 recent comments/updates\n" +
-                         "  Med     = 3-5 recent comments/updates\n" +
-                         "  High    = 6+ recent comments/updates\n\n" +
+                         "Columns Explained:\n" +
+                         "  API     = API reviewers approved/assigned (Microsoft Graph API reviewers group)\n" +
+                         "  Last By = Who made the most recent activity (Me|Reviewer|Author|Other)\n\n" +
                          "These mnemonics are used in the main table for clarity and alignment."
         };
 

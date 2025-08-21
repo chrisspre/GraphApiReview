@@ -413,8 +413,8 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             }
 
             // Prepare table data for pending PRs
-            var pendingHeaders = new[] { "Title", "Author", "Assigned", "Ratio", "Status", "Updated", "Activity", "URL" };
-            var pendingMaxWidths = new[] { 30, 18, 10, 8, 6, 8, 8, -1 }; // -1 means no limit for URLs
+            var pendingHeaders = new[] { "Title", "Author", "Assigned", "Ratio", "Status", "API", "Last By", "URL" };
+            var pendingMaxWidths = new[] { 30, 18, 10, 8, 6, 6, 8, -1 }; // -1 means no limit for URLs
 
             var pendingRows = new List<string[]>();
             foreach (var pr in pendingPullRequests)
@@ -423,8 +423,8 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                 var approvalRatio = GetApprovalRatio(pr);
                 var url = GetFullPullRequestUrl(pr, _options.UseShortUrls);
                 var myVoteStatus = GetMyVoteStatus(pr, currentUser.Id, currentUser.DisplayName);
-                var lastUpdated = GetLastUpdatedTime(pr);
-                var recentActivity = await GetRecentActivityIndicator(gitClient, repository.Id, pr);
+                var apiApprovalRatio = GetApiApprovalRatio(pr, apiReviewersMembers);
+                var lastActivity = await GetLastActivityBy(gitClient, repository.Id, pr, currentUser.Id);
 
                 pendingRows.Add([
                     ShortenTitle(pr.Title),
@@ -432,8 +432,8 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                     timeAssigned,
                     approvalRatio,
                     myVoteStatus,
-                    lastUpdated,
-                    recentActivity,
+                    apiApprovalRatio,
+                    lastActivity,
                     url
                 ]);
             }
@@ -839,45 +839,66 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             return "< 1d";
     }
 
-    private static string GetLastUpdatedTime(GitPullRequest pr)
+    private static string GetApiApprovalRatio(GitPullRequest pr, HashSet<string> apiReviewersMembers)
     {
         try
         {
-            // Use the last update date from the PR
-            var lastUpdate = pr.LastMergeSourceCommit?.Committer?.Date ?? pr.CreationDate;
-            var timeSinceUpdate = DateTime.UtcNow - lastUpdate;
-            return FormatTimeDifference(timeSinceUpdate);
+            if (apiReviewersMembers.Count == 0)
+                return "?/?"; // No API reviewers data available
+
+            // Filter to only API reviewers
+            var apiReviewers = pr.Reviewers?.Where(r => apiReviewersMembers.Contains(r.Id.ToString())).ToList();
+            
+            if (apiReviewers == null || apiReviewers.Count == 0)
+                return "0/0"; // No API reviewers assigned
+
+            var approvedCount = apiReviewers.Count(r => r.Vote >= 5); // 5 = approved with suggestions, 10 = approved
+            var totalCount = apiReviewers.Count;
+
+            return $"{approvedCount}/{totalCount}";
         }
         catch
         {
-            return "Unknown";
+            return "?/?";
         }
     }
 
-    private async Task<string> GetRecentActivityIndicator(GitHttpClient gitClient, Guid repositoryId, GitPullRequest pr)
+    private async Task<string> GetLastActivityBy(GitHttpClient gitClient, Guid repositoryId, GitPullRequest pr, Guid currentUserId)
     {
         try
         {
-            // Get PR threads (comments/discussions) to check for recent activity
+            // Get PR threads to find the most recent activity
             var threads = await gitClient.GetThreadsAsync(repositoryId, pr.PullRequestId);
             
             if (threads?.Any() != true)
-                return "None";
+                return "Author"; // Default to author if no threads
 
-            // Count recent comments (last 7 days)
-            var sevenDaysAgo = DateTime.UtcNow.AddDays(-7);
-            var recentComments = threads
-                .Where(t => t.LastUpdatedDate >= sevenDaysAgo)
-                .Count();
+            // Find the most recent comment/thread
+            var mostRecentThread = threads
+                .Where(t => t.Comments?.Any() == true)
+                .SelectMany(t => t.Comments)
+                .OrderByDescending(c => c.LastUpdatedDate)
+                .FirstOrDefault();
 
-            if (recentComments == 0)
-                return "None";
-            else if (recentComments <= 2)
-                return "Low";
-            else if (recentComments <= 5)
-                return "Med";
-            else
-                return "High";
+            if (mostRecentThread?.Author?.Id == null)
+                return "Author"; // Default to author
+
+            var authorId = mostRecentThread.Author.Id;
+            
+            // Check if it's the current user
+            if (authorId.ToString() == currentUserId.ToString())
+                return "Me";
+
+            // Check if it's the PR author
+            if (authorId == pr.CreatedBy.Id)
+                return "Author";
+
+            // Check if it's a reviewer
+            var isReviewer = pr.Reviewers?.Any(r => r.Id == authorId) == true;
+            if (isReviewer)
+                return "Reviewer";
+
+            return "Other";
         }
         catch
         {
