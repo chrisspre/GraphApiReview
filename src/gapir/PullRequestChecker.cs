@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Identity;
 using Microsoft.VisualStudio.Services.Identity.Client;
 using gapir.Utilities;
+using System.Text.Json;
 
 public class PullRequestChecker(PullRequestCheckerOptions options)
 {
@@ -56,246 +57,226 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
         {
             var identityClient = connection.GetClient<IdentityHttpClient>();
             
-            Log.Information("Fetching API reviewers group members...");
+            Log.Information($"Fetching API reviewers group: {ApiReviewersGroupName}");
             
-            // Method 1: Try to find the group by searching for it
+            // Step 1: Find the group by exact name
             var searchResults = await identityClient.ReadIdentitiesAsync(
                 IdentitySearchFilter.General,
                 ApiReviewersGroupName,
-                queryMembership: QueryMembership.Expanded);
+                queryMembership: QueryMembership.None);
 
             var apiGroup = searchResults?.FirstOrDefault(i => 
-                i.DisplayName?.Equals(ApiReviewersGroupName, StringComparison.OrdinalIgnoreCase) == true ||
-                i.DisplayName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true);
+                i.DisplayName?.Equals(ApiReviewersGroupName, StringComparison.OrdinalIgnoreCase) == true);
 
             if (apiGroup != null)
             {
-                Log.Debug($"Found group: {apiGroup.DisplayName}, Id: {apiGroup.Id}");
-                Log.Debug($"Group MemberIds count: {apiGroup.MemberIds?.Count() ?? 0}");
-                Log.Debug($"Group Members count: {apiGroup.Members?.Count() ?? 0}");
+                Log.Information($"Found group: {apiGroup.DisplayName}, Id: {apiGroup.Id}");
                 
-                // Method 1a: Try MemberIds first (direct members)
-                if (apiGroup.MemberIds?.Any() == true)
+                // Step 2: Get group members with recursive expansion
+                _apiReviewersMembers = await ExpandGroupMembersRecursively(identityClient, apiGroup.Id);
+                
+                Log.Information($"Found {_apiReviewersMembers.Count} API reviewers via group membership");
+            }
+            else
+            {
+                Log.Warning($"Group '{ApiReviewersGroupName}' not found");
+                _apiReviewersMembers = new HashSet<string>();
+            }
+            
+            // Step 3: Use static fallback if no members found
+            if (_apiReviewersMembers.Count == 0)
+            {
+                Log.Warning("No API reviewers found via group membership, using static fallback");
+                _apiReviewersMembers = GetStaticApiReviewersFallback();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Error fetching API reviewers: {ex.Message}");
+            Log.Information("Using static fallback list");
+            _apiReviewersMembers = GetStaticApiReviewersFallback();
+        }
+
+        return _apiReviewersMembers;
+    }
+
+    private async Task<HashSet<string>> ExpandGroupMembersRecursively(IdentityHttpClient identityClient, Guid groupId)
+    {
+        var allMembers = new HashSet<string>();
+        var processedGroups = new HashSet<Guid>();
+        
+        await ExpandGroupMembersRecursivelyInternal(identityClient, groupId, allMembers, processedGroups);
+        
+        return allMembers;
+    }
+
+    private async Task ExpandGroupMembersRecursivelyInternal(IdentityHttpClient identityClient, Guid groupId, HashSet<string> allMembers, HashSet<Guid> processedGroups)
+    {
+        // Avoid infinite recursion
+        if (processedGroups.Contains(groupId))
+            return;
+            
+        processedGroups.Add(groupId);
+        
+        try
+        {
+            // Try to get group with expanded membership
+            var group = await identityClient.ReadIdentityAsync(groupId, QueryMembership.Expanded);
+            
+            if (group?.Members?.Any() == true)
+            {
+                foreach (var member in group.Members)
                 {
-                    _apiReviewersMembers = apiGroup.MemberIds.Select(id => id.ToString()).ToHashSet();
-                    Log.Information($"Found {_apiReviewersMembers.Count} members via MemberIds");
-                }
-                // Method 1b: Try Members property (might contain nested groups)
-                else if (apiGroup.Members?.Any() == true)
-                {
-                    _apiReviewersMembers = apiGroup.Members.Select(m => m.Identifier).ToHashSet();
-                    Log.Information($"Found {_apiReviewersMembers.Count} members via Members property");
-                }
-                // Method 1c: Try to get group membership by reading the group directly with expanded membership
-                else
-                {
-                    Log.Debug("Group found but no direct members, trying to read group with explicit membership expansion");
-                    var groupWithMembers = await identityClient.ReadIdentityAsync(
-                        apiGroup.Id, 
-                        QueryMembership.Expanded);
+                    // Use the identifier string to determine type
+                    var identifier = member.Identifier;
                     
-                    if (groupWithMembers?.MemberIds?.Any() == true)
+                    // If the identifier looks like a GUID, it might be a nested group
+                    if (Guid.TryParse(identifier, out var memberGuid))
                     {
-                        _apiReviewersMembers = groupWithMembers.MemberIds.Select(id => id.ToString()).ToHashSet();
-                        Log.Information($"Found {_apiReviewersMembers.Count} members via direct group read");
-                    }
-                    else if (groupWithMembers?.Members?.Any() == true)
-                    {
-                        _apiReviewersMembers = groupWithMembers.Members.Select(m => m.Identifier).ToHashSet();
-                        Log.Information($"Found {_apiReviewersMembers.Count} members via direct group read (Members property)");
+                        try
+                        {
+                            // Try to read this member to see if it's a group
+                            var memberIdentity = await identityClient.ReadIdentityAsync(memberGuid, QueryMembership.None);
+                            
+                            // Check if this is a group by looking at the descriptor
+                            if (memberIdentity?.Descriptor?.Identifier?.StartsWith("vssgp.") == true)
+                            {
+                                Log.Debug($"Found nested group: {memberIdentity.DisplayName}, expanding...");
+                                await ExpandGroupMembersRecursivelyInternal(identityClient, memberGuid, allMembers, processedGroups);
+                            }
+                            else
+                            {
+                                // It's a user
+                                allMembers.Add(identifier);
+                                Log.Debug($"Added user: {memberIdentity?.DisplayName} ({identifier})");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // If we can't read it as an identity, treat it as a user ID
+                            Log.Debug($"Treating as user ID: {identifier} ({ex.Message})");
+                            allMembers.Add(identifier);
+                        }
                     }
                     else
                     {
-                        // Method 1d: Try to get members by searching for users in this group
-                        Log.Debug("Trying to find group members by searching for users with this group membership");
-                        await TryGetMembersByGroupSearch(identityClient, apiGroup.Id);
+                        // Non-GUID identifier, treat as user
+                        allMembers.Add(identifier);
+                        Log.Debug($"Added user (non-GUID): {identifier}");
                     }
                 }
             }
-            
-            // Method 2: If still no members, try alternative search approaches
-            if ((_apiReviewersMembers?.Count ?? 0) == 0)
+            // Fallback: try MemberIds if Members is empty
+            else if (group?.MemberIds?.Any() == true)
             {
-                await TryAlternativeGroupSearches(identityClient);
-            }
-            
-            // Method 3: Last resort - analyze recent PR reviewers to identify API reviewers
-            if ((_apiReviewersMembers?.Count ?? 0) == 0)
-            {
-                Log.Warning("Could not find API reviewers group members via Identity API");
-                Log.Information("Attempting to identify API reviewers from recent PR history...");
-                await TryIdentifyApiReviewersFromPRHistory(connection);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error($"Error fetching API reviewers group members: {ex.Message}");
-            Log.Warning("Falling back to heuristic-based API reviewer detection");
-            _apiReviewersMembers = new HashSet<string>();
-        }
-
-        return _apiReviewersMembers ?? new HashSet<string>();
-    }
-
-    private async Task TryGetMembersByGroupSearch(IdentityHttpClient identityClient, Guid groupId)
-    {
-        try
-        {
-            // Azure DevOps Identity API doesn't have ReadMembersOfAsync, let's try a different approach
-            // We'll search for the group again with a different query membership approach
-            var groupIdentity = await identityClient.ReadIdentityAsync(groupId, QueryMembership.Direct);
-            
-            if (groupIdentity?.MemberIds?.Any() == true)
-            {
-                _apiReviewersMembers = groupIdentity.MemberIds.Select(u => u.ToString()).ToHashSet();
-                Log.Information($"Found {_apiReviewersMembers.Count} members via ReadIdentityAsync with Direct membership");
-            }
-            else if (groupIdentity?.Members?.Any() == true)
-            {
-                _apiReviewersMembers = groupIdentity.Members.Select(m => m.Identifier).ToHashSet();
-                Log.Information($"Found {_apiReviewersMembers.Count} members via ReadIdentityAsync Direct (Members property)");
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Debug($"ReadIdentityAsync with Direct membership failed: {ex.Message}");
-        }
-    }
-
-    private async Task TryAlternativeGroupSearches(IdentityHttpClient identityClient)
-    {
-        try
-        {
-            // Try searching for just "Microsoft Graph API reviewers" without the prefix
-            var altSearchResults = await identityClient.ReadIdentitiesAsync(
-                IdentitySearchFilter.General,
-                "Microsoft Graph API reviewers",
-                queryMembership: QueryMembership.Expanded);
-
-            var altApiGroup = altSearchResults?.FirstOrDefault(i => 
-                i.DisplayName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true);
-
-            if (altApiGroup?.MemberIds?.Any() == true)
-            {
-                _apiReviewersMembers = altApiGroup.MemberIds.Select(id => id.ToString()).ToHashSet();
-                Log.Information($"Found {_apiReviewersMembers.Count} members via alternative search (MemberIds)");
-            }
-            else if (altApiGroup?.Members?.Any() == true)
-            {
-                _apiReviewersMembers = altApiGroup.Members.Select(m => m.Identifier).ToHashSet();
-                Log.Information($"Found {_apiReviewersMembers.Count} members via alternative search (Members)");
-            }
-            
-            // Try different search filters
-            if ((_apiReviewersMembers?.Count ?? 0) == 0)
-            {
-                var accountSearchResults = await identityClient.ReadIdentitiesAsync(
-                    IdentitySearchFilter.AccountName,
-                    "Microsoft Graph API reviewers",
-                    queryMembership: QueryMembership.Expanded);
-                
-                var accountApiGroup = accountSearchResults?.FirstOrDefault(i => 
-                    i.DisplayName?.Contains("Microsoft Graph API reviewers", StringComparison.OrdinalIgnoreCase) == true);
-                
-                if (accountApiGroup?.MemberIds?.Any() == true)
+                Log.Debug($"Using MemberIds fallback for group {groupId}");
+                foreach (var memberId in group.MemberIds)
                 {
-                    _apiReviewersMembers = accountApiGroup.MemberIds.Select(id => id.ToString()).ToHashSet();
-                    Log.Information($"Found {_apiReviewersMembers.Count} members via account name search");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Debug($"Alternative group searches failed: {ex.Message}");
-        }
-    }
-
-    private async Task TryIdentifyApiReviewersFromPRHistory(VssConnection connection)
-    {
-        try
-        {
-            var gitClient = connection.GetClient<GitHttpClient>();
-            var repository = await gitClient.GetRepositoryAsync(ProjectName, RepositoryName);
-            
-            // Get recent completed PRs to analyze reviewer patterns  
-            var recentSearchCriteria = new GitPullRequestSearchCriteria()
-            {
-                Status = PullRequestStatus.Completed
-            };
-            
-            var recentPRs = await gitClient.GetPullRequestsAsync(repository.Id, recentSearchCriteria, top: 50);
-            
-            // Filter to only PRs from the last 30 days
-            var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
-            var filteredPRs = recentPRs.Where(pr => pr.CreationDate >= thirtyDaysAgo).ToList();
-            
-            // Analyze reviewers who frequently appear on PRs and look for patterns
-            var reviewerFrequency = new Dictionary<string, int>();
-            var reviewerInfo = new Dictionary<string, (string displayName, string uniqueName)>();
-            
-            foreach (var pr in filteredPRs)
-            {
-                if (pr.Reviewers?.Any() == true)
-                {
-                    foreach (var reviewer in pr.Reviewers)
+                    try
                     {
-                        // Skip system accounts
-                        if (reviewer.DisplayName.StartsWith("[TEAM FOUNDATION]") ||
-                            reviewer.DisplayName.Contains("Bot") ||
-                            reviewer.DisplayName.Contains("Automation"))
-                            continue;
-                            
-                        var reviewerId = reviewer.Id.ToString();
-                        reviewerFrequency[reviewerId] = reviewerFrequency.GetValueOrDefault(reviewerId, 0) + 1;
-                        reviewerInfo[reviewerId] = (reviewer.DisplayName, reviewer.UniqueName);
+                        var member = await identityClient.ReadIdentityAsync(memberId, QueryMembership.None);
+                        if (member?.Descriptor?.Identifier?.StartsWith("vssgp.") == true)
+                        {
+                            Log.Debug($"Found nested group via MemberIds: {member.DisplayName}, expanding...");
+                            await ExpandGroupMembersRecursivelyInternal(identityClient, memberId, allMembers, processedGroups);
+                        }
+                        else
+                        {
+                            allMembers.Add(memberId.ToString());
+                            Log.Debug($"Added user via MemberIds: {member?.DisplayName} ({memberId})");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Debug($"Could not read member {memberId}: {ex.Message}");
+                        // Assume it's a user if we can't read it
+                        allMembers.Add(memberId.ToString());
                     }
                 }
-            }
-            
-            // Identify likely API reviewers (appear on many PRs + heuristics)
-            var likelyApiReviewers = reviewerFrequency
-                .Where(kvp => kvp.Value >= 3) // Appeared on at least 3 PRs
-                .Where(kvp => reviewerInfo.ContainsKey(kvp.Key))
-                .Where(kvp => 
-                {
-                    var (displayName, uniqueName) = reviewerInfo[kvp.Key];
-                    return IsLikelyApiReviewer(displayName, uniqueName);
-                })
-                .Select(kvp => kvp.Key)
-                .ToHashSet();
-            
-            if (likelyApiReviewers.Count > 0)
-            {
-                _apiReviewersMembers = likelyApiReviewers;
-                Log.Information($"Identified {_apiReviewersMembers.Count} likely API reviewers from PR history analysis");
-                Log.Debug($"API reviewers identified: {string.Join(", ", likelyApiReviewers.Select(id => reviewerInfo[id].displayName))}");
             }
         }
         catch (Exception ex)
         {
-            Log.Debug($"PR history analysis failed: {ex.Message}");
+            Log.Debug($"Error expanding group {groupId}: {ex.Message}");
         }
     }
 
-    private static bool IsLikelyApiReviewer(string displayName, string uniqueName)
+    private static HashSet<string> GetStaticApiReviewersFallback()
     {
-        // Enhanced heuristics to identify API reviewers
-        var lowerDisplayName = displayName?.ToLowerInvariant() ?? "";
-        var lowerUniqueName = uniqueName?.ToLowerInvariant() ?? "";
+        Log.Information("Loading static fallback list for API reviewers");
         
-        // Look for API-related terms in names or emails
-        var apiTerms = new[] { "api", "graph", "review", "architect", "platform" };
-        var exclusionTerms = new[] { "test", "automation", "bot", "build" };
-        
-        // Check if name/email contains API-related terms
-        var hasApiTerms = apiTerms.Any(term => 
-            lowerDisplayName.Contains(term) || lowerUniqueName.Contains(term));
+        try
+        {
+            // Try to load from config file first
+            var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "config", "api-reviewers.json");
+            var fullConfigPath = Path.GetFullPath(configPath);
             
-        // Check if name/email contains exclusion terms
-        var hasExclusionTerms = exclusionTerms.Any(term => 
-            lowerDisplayName.Contains(term) || lowerUniqueName.Contains(term));
+            if (File.Exists(fullConfigPath))
+            {
+                Log.Information($"Loading API reviewers from config file: {fullConfigPath}");
+                var jsonContent = File.ReadAllText(fullConfigPath);
+                var config = JsonSerializer.Deserialize<ApiReviewersConfig>(jsonContent, new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true 
+                });
+                
+                if (config?.ApiReviewers?.Any() == true)
+                {
+                    var reviewerIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    
+                    foreach (var reviewer in config.ApiReviewers)
+                    {
+                        // Add all available identifiers for each reviewer
+                        if (!string.IsNullOrEmpty(reviewer.Id))
+                            reviewerIds.Add(reviewer.Id);
+                        if (!string.IsNullOrEmpty(reviewer.MailAddress))
+                            reviewerIds.Add(reviewer.MailAddress);
+                        if (!string.IsNullOrEmpty(reviewer.UniqueName))
+                            reviewerIds.Add(reviewer.UniqueName);
+                    }
+                    
+                    Log.Information($"Loaded {config.ApiReviewers.Count} API reviewers from config file (last updated: {config.LastUpdated})");
+                    return reviewerIds;
+                }
+                else
+                {
+                    Log.Warning("Config file exists but contains no API reviewers");
+                }
+            }
+            else
+            {
+                Log.Warning($"Config file not found at: {fullConfigPath}");
+                Log.Information("Run 'scripts/update-api-reviewers.ps1' to generate the config file");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Error loading API reviewers config: {ex.Message}");
+        }
         
-        return hasApiTerms && !hasExclusionTerms;
+        // Fallback to empty set if config loading fails
+        Log.Warning("Using empty API reviewers list - Ratio column will show '?/?' until config is populated");
+        return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    // Configuration classes for JSON deserialization
+    public class ApiReviewersConfig
+    {
+        public string? LastUpdated { get; set; }
+        public string? Organization { get; set; }
+        public string? Project { get; set; }
+        public string? GroupName { get; set; }
+        public string? GroupId { get; set; }
+        public string? Source { get; set; }
+        public List<ApiReviewer>? ApiReviewers { get; set; }
+    }
+
+    public class ApiReviewer
+    {
+        public string? Id { get; set; }
+        public string? DisplayName { get; set; }
+        public string? MailAddress { get; set; }
+        public string? UniqueName { get; set; }
     }
 
     private async Task CheckPullRequestsAsync(VssConnection connection)
@@ -688,38 +669,20 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             if (waitingForAuthorCount > 0)
                 return "Wait4A"; // Waiting For Author
 
-            // Identify API reviewers using actual group membership (preferred) or heuristics (fallback)
+            // Identify API reviewers using group membership data
             List<IdentityRefWithVote> apiReviewers;
             List<IdentityRefWithVote> nonApiReviewers;
 
-            if (apiReviewersMembers.Count > 0)
-            {
-                // Use actual group membership data - convert Guid to string for comparison
-                apiReviewers = allReviewers.Where(r => apiReviewersMembers.Contains(r.Id.ToString())).ToList();
-                nonApiReviewers = allReviewers.Where(r => 
-                    !apiReviewersMembers.Contains(r.Id.ToString()) &&
-                    !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
-                    !r.DisplayName.StartsWith($"[{ProjectName}]") &&
-                    !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
-                    !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
-                    !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase)
-                ).ToList();
-            }
-            else
-            {
-                // Fallback to heuristic-based detection
-                apiReviewers = allReviewers.Where(r => 
-                    IsApiReviewer(r.UniqueName, r.DisplayName)).ToList();
-                
-                nonApiReviewers = allReviewers.Where(r => 
-                    !IsApiReviewer(r.UniqueName, r.DisplayName) &&
-                    !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
-                    !r.DisplayName.StartsWith($"[{ProjectName}]") &&
-                    !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
-                    !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
-                    !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase)
-                ).ToList();
-            }
+            // Use group membership data - convert Guid to string for comparison
+            apiReviewers = allReviewers.Where(r => apiReviewersMembers.Contains(r.Id.ToString())).ToList();
+            nonApiReviewers = allReviewers.Where(r => 
+                !apiReviewersMembers.Contains(r.Id.ToString()) &&
+                !r.DisplayName.StartsWith("[TEAM FOUNDATION]") &&
+                !r.DisplayName.StartsWith($"[{ProjectName}]") &&
+                !r.DisplayName.Equals("Ownership Enforcer", StringComparison.OrdinalIgnoreCase) &&
+                !r.DisplayName.Contains("Bot", StringComparison.OrdinalIgnoreCase) &&
+                !r.DisplayName.Contains("Automation", StringComparison.OrdinalIgnoreCase)
+            ).ToList();
 
             // Check API reviewers approval status (need at least 2 approved)
             var apiApprovedCount = apiReviewers.Count(r => r.Vote >= 5);
@@ -765,41 +728,6 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
         {
             return "UNK"; // Unknown
         }
-    }
-
-    private static bool IsApiReviewer(string uniqueName, string displayName)
-    {
-        // Heuristic fallback to identify API reviewers when group membership data is not available
-        // This method is used only when Azure DevOps Identity API calls fail
-        
-        // Check if the unique name contains patterns that suggest API reviewer membership
-        if (!string.IsNullOrEmpty(uniqueName))
-        {
-            // Look for known API reviewer email patterns or names
-            var lowerUniqueName = uniqueName.ToLowerInvariant();
-            
-            // Add known patterns here - you would need to update this based on actual team members
-            // For now, we'll use a conservative approach
-            if (lowerUniqueName.Contains("apireview") || 
-                lowerUniqueName.Contains("api-review") ||
-                lowerUniqueName.Contains("graph"))
-            {
-                return true;
-            }
-        }
-
-        // Check display name patterns
-        if (!string.IsNullOrEmpty(displayName))
-        {
-            var lowerDisplayName = displayName.ToLowerInvariant();
-            if (lowerDisplayName.Contains("api review") || 
-                lowerDisplayName.Contains("graph"))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static string FormatTimeDifferenceDays(TimeSpan timeDiff)
