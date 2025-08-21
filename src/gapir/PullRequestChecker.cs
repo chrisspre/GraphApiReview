@@ -324,8 +324,8 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             }
 
             // Prepare table data for pending PRs
-            var pendingHeaders = new[] { "Title", "Author", "Assigned", "Status", "Ratio", "Last By", "URL" };
-            var pendingMaxWidths = new[] { 30, 18, 10, 6, 6, 8, -1 }; // -1 means no limit for URLs
+            var pendingHeaders = new[] { "Title", "Author", "Age", "Status", "Ratio", "Change", "URL" };
+            var pendingMaxWidths = new[] { 30, 18, 10, 6, 6, 20, -1 }; // -1 means no limit for URLs
 
             var pendingRows = new List<string[]>();
             foreach (var pr in pendingPullRequests)
@@ -334,7 +334,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                 var url = GetFullPullRequestUrl(pr, _options.UseShortUrls);
                 var myVoteStatus = GetMyVoteStatus(pr, currentUser.Id, currentUser.DisplayName);
                 var apiApprovalRatio = GetApiApprovalRatio(pr, apiReviewersMembers);
-                var lastActivity = await GetLastActivityBy(gitClient, repository.Id, pr, currentUser.Id);
+                var lastActivity = await GetLastChangeInfo(gitClient, repository.Id, pr, currentUser.Id);
 
                 pendingRows.Add([
                     ShortenTitle(pr.Title),
@@ -696,42 +696,111 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
         }
     }
 
-    private async Task<string> GetLastActivityBy(GitHttpClient gitClient, Guid repositoryId, GitPullRequest pr, Guid currentUserId)
+    private async Task<string> GetLastChangeInfo(GitHttpClient gitClient, Guid repositoryId, GitPullRequest pr, Guid currentUserId)
     {
         try
         {
-            // Get PR threads to find the most recent activity
+            DateTime? mostRecentActivityDate = null;
+            string? mostRecentActivityAuthorId = null;
+            string changeType = "Created";
+
+            // Check 1: PR threads/comments - look for different types of comments
             var threads = await gitClient.GetThreadsAsync(repositoryId, pr.PullRequestId);
+            if (threads?.Any() == true)
+            {
+                var mostRecentComment = threads
+                    .Where(t => t.Comments?.Any() == true)
+                    .SelectMany(t => t.Comments)
+                    .OrderByDescending(c => c.LastUpdatedDate)
+                    .FirstOrDefault();
 
-            if (threads?.Any() != true)
-                return "Author"; // Default to author if no threads
+                if (mostRecentComment?.LastUpdatedDate != null)
+                {
+                    mostRecentActivityDate = mostRecentComment.LastUpdatedDate;
+                    mostRecentActivityAuthorId = mostRecentComment.Author?.Id;
+                    
+                    // Determine comment type based on thread properties
+                    var thread = threads.FirstOrDefault(t => t.Comments?.Contains(mostRecentComment) == true);
+                    if (thread?.Properties?.Any(p => p.Key == "Microsoft.TeamFoundation.Discussion.Status") == true)
+                    {
+                        var status = thread.Properties.FirstOrDefault(p => p.Key == "Microsoft.TeamFoundation.Discussion.Status").Value?.ToString();
+                        changeType = status?.ToLower() switch
+                        {
+                            "active" => "Added Comment",
+                            "fixed" => "Resolved Comment", 
+                            "wontfix" => "Won't Fix Comment",
+                            "closed" => "Closed Comment",
+                            _ => "Added Comment"
+                        };
+                    }
+                    else
+                    {
+                        changeType = "Added Comment";
+                    }
+                }
+            }
 
-            // Find the most recent comment/thread
-            var mostRecentThread = threads
-                .Where(t => t.Comments?.Any() == true)
-                .SelectMany(t => t.Comments)
-                .OrderByDescending(c => c.LastUpdatedDate)
-                .FirstOrDefault();
+            // Check 2: PR iterations (code pushes)
+            try
+            {
+                var iterations = await gitClient.GetPullRequestIterationsAsync(repositoryId, pr.PullRequestId);
+                var mostRecentIteration = iterations?.OrderByDescending(i => i.CreatedDate).FirstOrDefault();
+                
+                if (mostRecentIteration?.CreatedDate != null && 
+                    (mostRecentActivityDate == null || mostRecentIteration.CreatedDate > mostRecentActivityDate))
+                {
+                    mostRecentActivityDate = mostRecentIteration.CreatedDate;
+                    mostRecentActivityAuthorId = pr.CreatedBy.Id;
+                    changeType = "Pushed Code";
+                }
+            }
+            catch
+            {
+                // Ignore iteration errors - some permissions issues might occur
+            }
 
-            if (mostRecentThread?.Author?.Id == null)
-                return "Author"; // Default to author
+            // Check 3: Reviewer votes/approvals (this will override if we detect a vote from the same person)
+            if (pr.Reviewers?.Any() == true)
+            {
+                foreach (var reviewer in pr.Reviewers)
+                {
+                    if (reviewer.Vote != 0 && reviewer.Id.ToString() == mostRecentActivityAuthorId)
+                    {
+                        // If the most recent activity author also has a vote, show the vote instead
+                        changeType = reviewer.Vote switch
+                        {
+                            -10 => "Rejected",
+                            -5 => "Waiting for Author",
+                            5 => "Approved with Suggestions",
+                            10 => "Approved",
+                            _ => "Voted"
+                        };
+                        break;
+                    }
+                }
+            }
 
-            var authorId = mostRecentThread.Author.Id;
+            // Fallback to PR creation if no activity found
+            if (string.IsNullOrEmpty(mostRecentActivityAuthorId))
+            {
+                mostRecentActivityAuthorId = pr.CreatedBy.Id;
+                changeType = "Created PR";
+            }
 
-            // Check if it's the current user
-            if (authorId.ToString() == currentUserId.ToString())
-                return "Me";
+            // Determine the relationship (who)
+            string actor;
+            if (mostRecentActivityAuthorId == currentUserId.ToString())
+                actor = "Me";
+            else if (mostRecentActivityAuthorId == pr.CreatedBy.Id)
+                actor = "Author";
+            else
+            {
+                var isReviewer = pr.Reviewers?.Any(r => r.Id.ToString() == mostRecentActivityAuthorId) == true;
+                actor = isReviewer ? "Reviewer" : "Other";
+            }
 
-            // Check if it's the PR author
-            if (authorId == pr.CreatedBy.Id)
-                return "Author";
-
-            // Check if it's a reviewer
-            var isReviewer = pr.Reviewers?.Any(r => r.Id == authorId) == true;
-            if (isReviewer)
-                return "Reviewer";
-
-            return "Other";
+            // Format as "Who: What"
+            return $"{actor}: {changeType}";
         }
         catch
         {

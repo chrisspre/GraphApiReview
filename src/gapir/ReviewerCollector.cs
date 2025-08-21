@@ -89,15 +89,15 @@ public class ReviewerCollector
                             {
                                 // Only consider individual reviewers (exclude groups and tools)
                                 var reviewerKey = GetReviewerKey(reviewer);
-                                if (!string.IsNullOrEmpty(reviewerKey))
+                                if (reviewerKey is not null )
                                 {
                                     // Consider a reviewer "required" if they are marked as required OR they provided approval/feedback
                                     if (reviewer.IsRequired == true || reviewer.Vote > 0)
                                     {
                                         var displayName = reviewer.DisplayName ?? reviewerKey ?? "Unknown";
-                                        if (reviewerCounts.ContainsKey(reviewerKey))
+                                        if (reviewerCounts.TryGetValue(reviewerKey, out var value))
                                         {
-                                            reviewerCounts[reviewerKey] = (reviewerCounts[reviewerKey].count + 1, displayName);
+                                            reviewerCounts[reviewerKey] = (value.count + 1, displayName);
                                         }
                                         else
                                         {
