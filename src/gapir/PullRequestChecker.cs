@@ -413,8 +413,8 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             }
 
             // Prepare table data for pending PRs
-            var pendingHeaders = new[] { "Title", "Author", "Assigned", "Ratio", "Status", "URL" };
-            var pendingMaxWidths = new[] { 30, 18, 10, 8, 6, -1 }; // -1 means no limit for URLs
+            var pendingHeaders = new[] { "Title", "Author", "Assigned", "Ratio", "Status", "Updated", "Activity", "URL" };
+            var pendingMaxWidths = new[] { 30, 18, 10, 8, 6, 8, 8, -1 }; // -1 means no limit for URLs
 
             var pendingRows = new List<string[]>();
             foreach (var pr in pendingPullRequests)
@@ -423,6 +423,8 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                 var approvalRatio = GetApprovalRatio(pr);
                 var url = GetFullPullRequestUrl(pr, _options.UseShortUrls);
                 var myVoteStatus = GetMyVoteStatus(pr, currentUser.Id, currentUser.DisplayName);
+                var lastUpdated = GetLastUpdatedTime(pr);
+                var recentActivity = await GetRecentActivityIndicator(gitClient, repository.Id, pr);
 
                 pendingRows.Add([
                     ShortenTitle(pr.Title),
@@ -430,6 +432,8 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                     timeAssigned,
                     approvalRatio,
                     myVoteStatus,
+                    lastUpdated,
+                    recentActivity,
                     url
                 ]);
             }
@@ -833,5 +837,51 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             return $"{(int)timeDiff.TotalDays}d";
         else
             return "< 1d";
+    }
+
+    private static string GetLastUpdatedTime(GitPullRequest pr)
+    {
+        try
+        {
+            // Use the last update date from the PR
+            var lastUpdate = pr.LastMergeSourceCommit?.Committer?.Date ?? pr.CreationDate;
+            var timeSinceUpdate = DateTime.UtcNow - lastUpdate;
+            return FormatTimeDifference(timeSinceUpdate);
+        }
+        catch
+        {
+            return "Unknown";
+        }
+    }
+
+    private async Task<string> GetRecentActivityIndicator(GitHttpClient gitClient, Guid repositoryId, GitPullRequest pr)
+    {
+        try
+        {
+            // Get PR threads (comments/discussions) to check for recent activity
+            var threads = await gitClient.GetThreadsAsync(repositoryId, pr.PullRequestId);
+            
+            if (threads?.Any() != true)
+                return "None";
+
+            // Count recent comments (last 7 days)
+            var sevenDaysAgo = DateTime.UtcNow.AddDays(-7);
+            var recentComments = threads
+                .Where(t => t.LastUpdatedDate >= sevenDaysAgo)
+                .Count();
+
+            if (recentComments == 0)
+                return "None";
+            else if (recentComments <= 2)
+                return "Low";
+            else if (recentComments <= 5)
+                return "Med";
+            else
+                return "High";
+        }
+        catch
+        {
+            return "Unknown";
+        }
     }
 }
