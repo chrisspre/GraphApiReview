@@ -29,21 +29,37 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
 
         VssConnection? connection;
 
-        // Authentication phase
-        using (var authSpinner = new Spinner("Authenticating with Azure DevOps..."))
+        // Authentication phase - only show spinner in verbose mode
+        if (Log.IsVerbose)
+        {
+            using (var authSpinner = new Spinner("Authenticating with Azure DevOps..."))
+            {
+                connection = await ConsoleAuth.AuthenticateAsync(OrganizationUrl);
+
+                if (connection == null)
+                {
+                    authSpinner.Error("Authentication failed");
+                    return;
+                }
+
+                authSpinner.Success("Authentication successful");
+            }
+        }
+        else
         {
             connection = await ConsoleAuth.AuthenticateAsync(OrganizationUrl);
 
             if (connection == null)
             {
-                authSpinner.Error("Authentication failed");
+                Console.WriteLine("Authentication failed");
                 return;
             }
-
-            authSpinner.Success("Authentication successful");
         }
 
-        Log.Information("Successfully authenticated!");
+        if (Log.IsVerbose)
+        {
+            Log.Information("Successfully authenticated!");
+        }
 
         // Get pull requests assigned to the current user
         await CheckPullRequestsAsync(connection);
@@ -226,10 +242,17 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
 
             // Pre-load API reviewers group members
             HashSet<string> apiReviewersMembers;
-            using (var groupSpinner = new Spinner("Loading API reviewers group..."))
+            if (Log.IsVerbose)
+            {
+                using (var groupSpinner = new Spinner("Loading API reviewers group..."))
+                {
+                    apiReviewersMembers = await GetApiReviewersGroupMembersAsync(connection);
+                    groupSpinner.Success($"Loaded {apiReviewersMembers.Count} API reviewers");
+                }
+            }
+            else
             {
                 apiReviewersMembers = await GetApiReviewersGroupMembersAsync(connection);
-                groupSpinner.Success($"Loaded {apiReviewersMembers.Count} API reviewers");
             }
 
             // Initialize analysis and display services
@@ -243,7 +266,21 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
 
             // Get pull requests assigned to the current user
             List<GitPullRequest> pullRequests;
-            using (var prSpinner = new Spinner("Fetching pull requests..."))
+            if (Log.IsVerbose)
+            {
+                using (var prSpinner = new Spinner("Fetching pull requests..."))
+                {
+                    var searchCriteria = new GitPullRequestSearchCriteria()
+                    {
+                        Status = PullRequestStatus.Active,
+                        ReviewerId = currentUserId
+                    };
+
+                    pullRequests = await gitClient.GetPullRequestsAsync(repository.Id, searchCriteria);
+                    prSpinner.Success($"Found {pullRequests.Count} assigned pull requests");
+                }
+            }
+            else
             {
                 var searchCriteria = new GitPullRequestSearchCriteria()
                 {
@@ -252,11 +289,9 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                 };
 
                 pullRequests = await gitClient.GetPullRequestsAsync(repository.Id, searchCriteria);
-                prSpinner.Success($"Found {pullRequests.Count} assigned pull requests");
             }
 
             // Analyze all pull requests
-            Console.WriteLine("Analyzing pull request statuses...");
             var pullRequestInfos = await analysisService.AnalyzePullRequestsAsync(
                 pullRequests, 
                 gitClient, 
