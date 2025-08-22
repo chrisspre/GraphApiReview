@@ -239,7 +239,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                 currentUserDisplayName, 
                 _options.UseShortUrls);
             
-            var displayService = new PullRequestDisplayService(_options.UseShortUrls);
+            var displayService = new PullRequestDisplayService(_options.UseShortUrls, _options.ShowDetailedTiming);
 
             // Get pull requests assigned to the current user
             List<GitPullRequest> pullRequests;
@@ -272,7 +272,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             if (_options.ShowApproved && approvedPRs.Any())
             {
                 Console.WriteLine($"✓ {approvedPRs.Count} PR(s) you have already approved:");
-                displayService.DisplayPullRequestsTable(approvedPRs);
+                displayService.DisplayApprovedPullRequestsTable(approvedPRs);
             }
 
             // Show pending PRs
@@ -280,12 +280,6 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             if (pendingPRs.Any())
             {
                 displayService.DisplayPullRequestsTable(pendingPRs);
-                displayService.DisplaySummary(pendingPRs);
-                
-                if (_options.ShowLegend)
-                {
-                    displayService.DisplayLegend();
-                }
             }
             else
             {

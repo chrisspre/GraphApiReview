@@ -6,10 +6,62 @@ namespace gapir.Services;
 public class PullRequestDisplayService
 {
     private readonly bool _useShortUrls;
+    private readonly bool _showDetailedTiming;
 
-    public PullRequestDisplayService(bool useShortUrls = true)
+    public PullRequestDisplayService(bool useShortUrls = true, bool showDetailedTiming = false)
     {
         _useShortUrls = useShortUrls;
+        _showDetailedTiming = showDetailedTiming;
+    }
+
+    /// <summary>
+    /// Displays approved PRs in a simpler format
+    /// </summary>
+    public void DisplayApprovedPullRequestsTable(List<Models.PullRequestInfo> pullRequestInfos)
+    {
+        if (!pullRequestInfos.Any())
+        {
+            return;
+        }
+
+        Console.WriteLine("Reason why PR is not completed: ");
+        Console.WriteLine("    REJ=Rejected, WFA=Waiting For Author, POL=Policy/Build Issues");
+        Console.WriteLine("    PRA=Pending Reviewer Approval, POA=Pending Other Approvals");
+
+        // Prepare table data - adjust headers based on detailed timing flag
+        string[] headers;
+        int[] maxWidths;
+
+        if (_showDetailedTiming)
+        {
+            headers = new[] { "Author", "Title", "Why", "Age", "URL" };
+            maxWidths = new[] { 20, 30, 3, 5, -1 }; // Adjusted widths for single age column
+        }
+        else
+        {
+            headers = new[] { "Author", "Title", "Why", "URL" };
+            maxWidths = new[] { 25, 40, 8, -1 };
+        }
+
+        var rows = new List<string[]>();
+        foreach (var info in pullRequestInfos)
+        {
+            var pr = info.PullRequest;
+            var url = _useShortUrls ? info.ShortUrl : info.FullUrl;
+            var reason = info.PendingReason;
+
+            if (_showDetailedTiming)
+            {
+                var age = FormatTimeDifferenceDays(DateTime.UtcNow - pr.CreationDate);
+                rows.Add(new string[] { pr.CreatedBy.DisplayName, ShortenTitle(pr.Title), reason, age, url });
+            }
+            else
+            {
+                rows.Add(new string[] { pr.CreatedBy.DisplayName, ShortenTitle(pr.Title), reason, url });
+            }
+        }
+
+        PrintTable(headers, rows, maxWidths);
     }
 
     /// <summary>
@@ -23,89 +75,138 @@ public class PullRequestDisplayService
             return;
         }
 
-        // Define column widths
-        const int idWidth = 7;
-        const int titleWidth = 50;
-        const int statusWidth = 8;
-        const int myVoteWidth = 7;
-        const int ratioWidth = 6;
-        const int ageWidth = 6;
-        const int reasonWidth = 7;
-        const int changeWidth = 20;
-        const int urlWidth = 25;
+        // Prepare table data for pending PRs using original format
+        var headers = new[] { "Title", "Author", "Age", "Status", "Ratio", "Change", "URL" };
+        var maxWidths = new[] { 30, 18, 10, 6, 6, 20, -1 }; // -1 means no limit for URLs
 
-        // Print header
-        Console.WriteLine();
-        Console.WriteLine($"{"ID",-idWidth} {"Title",-titleWidth} {"Status",-statusWidth} {"MyVote",-myVoteWidth} {"Ratio",-ratioWidth} {"Age",-ageWidth} {"Reason",-reasonWidth} {"Change",-changeWidth} {"URL",-urlWidth}");
-        Console.WriteLine(new string('=', idWidth + titleWidth + statusWidth + myVoteWidth + ratioWidth + ageWidth + reasonWidth + changeWidth + urlWidth + 8));
-
-        // Print each pull request
+        var rows = new List<string[]>();
         foreach (var info in pullRequestInfos)
         {
             var pr = info.PullRequest;
-            var truncatedTitle = TruncateString(pr.Title, titleWidth);
-            var status = FormatStatus(pr.Status);
+            var truncatedTitle = TruncateString(pr.Title, 30);
             var url = _useShortUrls ? info.ShortUrl : info.FullUrl;
 
-            Console.WriteLine($"{pr.PullRequestId,-idWidth} {truncatedTitle,-titleWidth} {status,-statusWidth} {info.MyVoteStatus,-myVoteWidth} {info.ApiApprovalRatio,-ratioWidth} {info.TimeAssigned,-ageWidth} {info.PendingReason,-reasonWidth} {info.LastChangeInfo,-changeWidth} {url,-urlWidth}");
+            rows.Add(new string[]
+            {
+                truncatedTitle,
+                pr.CreatedBy.DisplayName,
+                info.TimeAssigned,
+                info.MyVoteStatus,
+                info.ApiApprovalRatio,
+                info.LastChangeInfo,
+                url
+            });
         }
 
-        Console.WriteLine();
-        Console.WriteLine($"Total: {pullRequestInfos.Count} pull requests");
+        PrintTable(headers, rows, maxWidths);
     }
 
-    /// <summary>
-    /// Displays a summary of pull request statistics
-    /// </summary>
-    public void DisplaySummary(List<Models.PullRequestInfo> pullRequestInfos)
+    private static void PrintTable(string[] headers, IReadOnlyCollection<string[]> rows, int[] maxWidths)
     {
-        Console.WriteLine("\n=== SUMMARY ===");
-        Console.WriteLine($"Total PRs: {pullRequestInfos.Count}");
-        Console.WriteLine($"Approved by me: {pullRequestInfos.Count(info => info.IsApprovedByMe)}");
-        Console.WriteLine($"Not yet approved by me: {pullRequestInfos.Count(info => !info.IsApprovedByMe)}");
-        
-        // Group by pending reason
-        var reasonGroups = pullRequestInfos.GroupBy(info => info.PendingReason);
-        Console.WriteLine("\nBy pending reason:");
-        foreach (var group in reasonGroups.OrderByDescending(g => g.Count()))
+        if (headers == null || rows == null || maxWidths == null)
+            return;
+
+        if (headers.Length != maxWidths.Length)
+            throw new ArgumentException("Headers and maxWidths arrays must have the same length.");
+
+        // Calculate actual column widths based on content
+        var actualWidths = new int[headers.Length];
+
+        // Start with header lengths
+        for (int i = 0; i < headers.Length; i++)
         {
-            Console.WriteLine($"  {group.Key}: {group.Count()}");
+            actualWidths[i] = maxWidths[i] == -1 ? headers[i].Length : Math.Min(headers[i].Length, maxWidths[i]);
         }
 
-        // Group by my vote status
-        var voteGroups = pullRequestInfos.GroupBy(info => info.MyVoteStatus);
-        Console.WriteLine("\nBy my vote status:");
-        foreach (var group in voteGroups.OrderByDescending(g => g.Count()))
+        // Check content lengths
+        foreach (var row in rows)
         {
-            Console.WriteLine($"  {group.Key}: {group.Count()}");
+            if (row.Length != headers.Length)
+                continue; // Skip malformed rows
+
+            for (int i = 0; i < row.Length && i < actualWidths.Length; i++)
+            {
+                var contentLength = row[i]?.Length ?? 0;
+                if (maxWidths[i] == -1)
+                {
+                    // No limit for this column
+                    actualWidths[i] = Math.Max(actualWidths[i], contentLength);
+                }
+                else
+                {
+                    actualWidths[i] = Math.Max(actualWidths[i], Math.Min(contentLength, maxWidths[i]));
+                }
+            }
+        }
+
+        // Print header
+        Console.WriteLine();
+        for (int i = 0; i < headers.Length; i++)
+        {
+            var header = maxWidths[i] == -1 ? headers[i] : TruncateString(headers[i], actualWidths[i]);
+            Console.Write($"{header.PadRight(actualWidths[i])}");
+            if (i < headers.Length - 1)
+                Console.Write(" | ");
+        }
+        Console.WriteLine();
+
+        // Print separator
+        for (int i = 0; i < headers.Length; i++)
+        {
+            Console.Write(new string('-', actualWidths[i]));
+            if (i < headers.Length - 1)
+                Console.Write("-+-");
+        }
+        Console.WriteLine();
+
+        // Print rows
+        foreach (var row in rows)
+        {
+            if (row.Length != headers.Length)
+                continue; // Skip malformed rows
+
+            for (int i = 0; i < row.Length; i++)
+            {
+                var content = maxWidths[i] == -1 ? (row[i] ?? "") : TruncateString(row[i] ?? "", actualWidths[i]);
+                Console.Write($"{content.PadRight(actualWidths[i])}");
+                if (i < row.Length - 1)
+                    Console.Write(" | ");
+            }
+            Console.WriteLine();
         }
     }
 
-    /// <summary>
-    /// Displays legend for abbreviated terms
-    /// </summary>
-    public void DisplayLegend()
+    private static string FormatTimeDifferenceDays(TimeSpan timeDiff)
     {
-        Console.WriteLine("\n=== LEGEND ===");
-        Console.WriteLine("MyVote:");
-        Console.WriteLine("  Apprvd = Approved");
-        Console.WriteLine("  ApSugg = Approved with Suggestions");
-        Console.WriteLine("  NoVote = No Vote");
-        Console.WriteLine("  Wait4A = Waiting for Author");
-        Console.WriteLine("  Reject = Rejected");
-        Console.WriteLine("  ---    = Not a reviewer");
-        Console.WriteLine();
-        Console.WriteLine("Reason:");
-        Console.WriteLine("  PendRv = Pending Reviewer Approval (API reviewers)");
-        Console.WriteLine("  PendOt = Pending Other Approvals");
-        Console.WriteLine("  Policy = Policy/Build issues");
-        Console.WriteLine("  Wait4A = Waiting for Author");
-        Console.WriteLine("  Reject = Rejected");
-        Console.WriteLine();
-        Console.WriteLine("Change:");
-        Console.WriteLine("  Actor: Action (e.g., 'Me: Approved', 'Author: Pushed Code')");
-        Console.WriteLine("  Actor = Me|Author|Reviewer|Other");
-        Console.WriteLine("  Action = Created PR|Pushed Code|Added Comment|Resolved Comment|Approved|Waiting for Author|Rejected");
+        // For age columns, we only show days to keep it compact
+        if (timeDiff.TotalDays >= 1)
+            return $"{(int)timeDiff.TotalDays}d";
+        else
+            return "< 1d";
+    }
+
+    private static string ShortenTitle(string title)
+    {
+        if (string.IsNullOrEmpty(title))
+            return title;
+
+        // Remove all dashes and replace with spaces
+        var cleaned = title.Replace("-", " ");
+
+        // Remove trailing numbers (like issue numbers)
+        // Pattern: removes numbers at the end, optionally preceded by spaces or special chars
+        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"^\s*\d+\s*", "");
+
+        // Remove extra whitespace
+        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", " ").Trim();
+
+        // Truncate to 30 characters for table display
+        if (cleaned.Length > 30)
+        {
+            cleaned = $"{cleaned[..27]}...";
+        }
+
+        return cleaned;
     }
 
     private static string TruncateString(string input, int maxLength)
@@ -117,16 +218,5 @@ public class PullRequestDisplayService
             return input;
             
         return input.Substring(0, maxLength - 3) + "...";
-    }
-
-    private static string FormatStatus(Microsoft.TeamFoundation.SourceControl.WebApi.PullRequestStatus status)
-    {
-        return status switch
-        {
-            Microsoft.TeamFoundation.SourceControl.WebApi.PullRequestStatus.Active => "Active",
-            Microsoft.TeamFoundation.SourceControl.WebApi.PullRequestStatus.Completed => "Complete",
-            Microsoft.TeamFoundation.SourceControl.WebApi.PullRequestStatus.Abandoned => "Abandon",
-            _ => "Unknown"
-        };
     }
 }
