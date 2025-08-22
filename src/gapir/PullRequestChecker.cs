@@ -311,14 +311,14 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             }
 
             // Show pending PRs
-            Console.WriteLine($"⏳ {pendingPRs.Count} PR(s) pending your full approval:");
+            Console.WriteLine($"⏳ {pendingPRs.Count} PR(s) pending your approval:");
             if (pendingPRs.Any())
             {
                 displayService.DisplayPullRequestsTable(pendingPRs);
             }
             else
             {
-                Console.WriteLine("No pull requests found pending your full approval.");
+                Console.WriteLine("No pull requests found pending your approval.");
             }
         }
         catch (Exception ex)

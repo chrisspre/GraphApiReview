@@ -83,12 +83,12 @@ public class PullRequestDisplayService
         foreach (var info in pullRequestInfos)
         {
             var pr = info.PullRequest;
-            var truncatedTitle = TruncateString(pr.Title, 30);
+            var cleanedTitle = ShortenTitle(pr.Title);
             var url = _useShortUrls ? info.ShortUrl : info.FullUrl;
 
             rows.Add(new string[]
             {
-                truncatedTitle,
+                cleanedTitle,
                 pr.CreatedBy.DisplayName,
                 info.TimeAssigned,
                 info.MyVoteStatus,
