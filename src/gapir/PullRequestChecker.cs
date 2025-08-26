@@ -311,7 +311,7 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
             }
 
             // Show pending PRs
-            Console.WriteLine($"⏳ {pendingPRs.Count} PR(s) requiring your review:");
+            Console.WriteLine($"⏳ {pendingPRs.Count} incomplete PR(s) assigned to you:");
             if (pendingPRs.Any())
             {
                 displayService.DisplayPullRequestsTable(pendingPRs);

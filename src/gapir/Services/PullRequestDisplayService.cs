@@ -76,8 +76,8 @@ public class PullRequestDisplayService
         }
 
         // Prepare table data for pending PRs using original format
-        var headers = new[] { "Title", "Author", "Age", "Status", "Ratio", "Change", "URL" };
-        var maxWidths = new[] { 30, 18, 10, 6, 6, 20, -1 }; // -1 means no limit for URLs
+        var headers = new[] { "Title", "Status", "Author", "Age", "Ratio", "Change", "URL" };
+        var maxWidths = new[] { 30, 6, 18, 10, 6, 20, -1 }; // -1 means no limit for URLs
 
         var rows = new List<string[]>();
         foreach (var info in pullRequestInfos)
@@ -89,9 +89,9 @@ public class PullRequestDisplayService
             rows.Add(new string[]
             {
                 cleanedTitle,
+                info.MyVoteStatus,
                 pr.CreatedBy.DisplayName,
                 info.TimeAssigned,
-                info.MyVoteStatus,
                 info.ApiApprovalRatio,
                 info.LastChangeInfo,
                 url

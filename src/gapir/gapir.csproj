@@ -13,7 +13,14 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>gapir</ToolCommandName>
     <PackageId>gapir</PackageId>
-    <PackageVersion>1.0.0</PackageVersion>
+    <PackageVersion>1.0.2</PackageVersion>
+    
+    <!-- Version Synchronization - Make all versions consistent -->
+    <Version>1.0.2</Version>
+    <AssemblyVersion>1.0.2</AssemblyVersion>
+    <FileVersion>1.0.2</FileVersion>
+    <AssemblyInformationalVersion>1.0.2</AssemblyInformationalVersion>
+    
     <Authors>Christof Sprenger</Authors>
     <Description>gapir (Graph API Review) - A CLI tool to check Azure DevOps API Review pull requests assigned to you</Description>
     <Copyright>Copyright © 2025</Copyright>

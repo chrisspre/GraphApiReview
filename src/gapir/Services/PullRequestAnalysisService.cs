@@ -85,7 +85,7 @@ public class PullRequestAnalysisService
             return currentUserReviewer.Vote switch
             {
                 10 => "Apprvd", // Approved
-                5 => "ApSugg", // Approved with suggestions
+                5 => "Sugges", // Approved with suggestions
                 0 => "NoVote", // No vote
                 -5 => "Wait4A", // Waiting for author (you requested changes)
                 -10 => "Reject", // Rejected

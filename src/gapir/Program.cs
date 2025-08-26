@@ -12,7 +12,7 @@ class Program
             Description = "Checks for pull requests assigned to you for review in Azure DevOps.\n\n" +
                          "Status Codes (6-char mnemonics):\n" +
                          "  Apprvd  = Approved\n" +
-                         "  ApSugg  = Approved with suggestions\n" +
+                         "  Sugges  = Approved with suggestions\n" +
                          "  NoVote  = No vote\n" +
                          "  Wait4A  = Waiting for author\n" +
                          "  Reject  = Rejected\n\n" +
