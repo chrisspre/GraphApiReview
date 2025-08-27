@@ -6,6 +6,12 @@
 # dotenv files
 .env
 
+# PowerShell artifacts (cleanup remnants)
+src/gapir.PowerShell/
+
+# Removed components
+src/mcp/
+
 # User-specific files
 *.rsuser
 *.suo

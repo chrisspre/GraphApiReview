@@ -45,20 +45,20 @@ The tests are organized using data-driven testing patterns with xUnit's `[Theory
 
 | Test Case | Verbose | Show Approved | Full URLs | Notes |
 |-----------|---------|---------------|-----------|-------|
-| Default | ❌ | ❌ | ❌ | Baseline behavior |
-| `--verbose` | ✅ | ❌ | ❌ | Diagnostic output |
-| `-v` | ✅ | ❌ | ❌ | Short flag variant |
-| `--show-approved` | ❌ | ✅ | ❌ | Include approved PRs |
-| `-a` | ❌ | ✅ | ❌ | Short flag variant |
-| `--show-approved --full-urls` | ❌ | ✅ | ✅ | Approved + full URLs |
-| `-a -f` | ❌ | ✅ | ✅ | Short flags combined |
-| `--show-approved --verbose` | ✅ | ✅ | ❌ | Approved + verbose |
-| `-a -v` | ✅ | ✅ | ❌ | Short flags combined |
-| `--verbose --full-urls` | ✅ | ❌ | ✅ | Verbose + full URLs |
-| `-v -f` | ✅ | ❌ | ✅ | Short flags combined |
-| `--show-approved --verbose --full-urls` | ✅ | ✅ | ✅ | All flags enabled |
-| `-a -v -f` | ✅ | ✅ | ✅ | All short flags |
-| `--invalid-flag` | ❌ | ❌ | ❌ | Graceful degradation |
+| Default | No | No | No | Baseline behavior |
+| `--verbose` | Yes | No | No | Diagnostic output |
+| `-v` | Yes | No | No | Short flag variant |
+| `--show-approved` | No | Yes | No | Include approved PRs |
+| `-a` | No | Yes | No | Short flag variant |
+| `--show-approved --full-urls` | No | Yes | Yes | Approved + full URLs |
+| `-a -f` | No | Yes | Yes | Short flags combined |
+| `--show-approved --verbose` | Yes | Yes | No | Approved + verbose |
+| `-a -v` | Yes | Yes | No | Short flags combined |
+| `--verbose --full-urls` | Yes | No | Yes | Verbose + full URLs |
+| `-v -f` | Yes | No | Yes | Short flags combined |
+| `--show-approved --verbose --full-urls` | Yes | Yes | Yes | All flags enabled |
+| `-a -v -f` | Yes | Yes | Yes | All short flags |
+| `--invalid-flag` | No | No | No | Graceful degradation |
 
 ## Key Features Tested
 

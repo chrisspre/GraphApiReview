@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/gapir/gapir.csproj" />
+    <Project Path="src/kurz/kurz.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/gapir.Tests/gapir.Tests.csproj" />
+  </Folder>
+</Solution>
