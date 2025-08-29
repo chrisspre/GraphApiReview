@@ -65,11 +65,12 @@ public class AzureDevOpsService : IDisposable
             status: PullRequestStatus.Active,
             top: 200);
 
-        // Filter to only PRs that have at least one API reviewer assigned
+        // Filter to only PRs that have at least one required API reviewer assigned
         var apiReviewPrs = allPullRequests.Where(pr =>
             pr.Reviewers?.Any(r =>
-                apiReviewersMembers.Contains(r.UniqueName) ||
-                apiReviewersMembers.Contains(r.Id.ToString())) == true).ToList();
+                r.IsRequired == true && // Only required reviewers
+                (apiReviewersMembers.Contains(r.UniqueName) ||
+                apiReviewersMembers.Contains(r.Id.ToString()))) == true).ToList();
 
         return apiReviewPrs;
     }

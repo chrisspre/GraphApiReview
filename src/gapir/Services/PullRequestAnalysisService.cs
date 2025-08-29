@@ -68,7 +68,7 @@ public class PullRequestAnalysisService
             r.Id.Equals(_currentUserId) ||
             r.DisplayName.Equals(_currentUserDisplayName, StringComparison.OrdinalIgnoreCase));
 
-        return currentUserReviewer?.Vote == 10;
+        return currentUserReviewer?.Vote == 10 && currentUserReviewer.IsRequired == true;
     }
 
     private string GetMyVoteStatus(GitPullRequest pr)
@@ -79,8 +79,8 @@ public class PullRequestAnalysisService
                 r.Id.Equals(_currentUserId) ||
                 r.DisplayName.Equals(_currentUserDisplayName, StringComparison.OrdinalIgnoreCase));
 
-            if (currentUserReviewer == null)
-                return "---"; // Not a reviewer
+            if (currentUserReviewer == null || currentUserReviewer.IsRequired != true)
+                return "---"; // Not a reviewer or not required
 
             return currentUserReviewer.Vote switch
             {
@@ -105,10 +105,11 @@ public class PullRequestAnalysisService
             if (_apiReviewersMembers.Count == 0)
                 return "?/?"; // No API reviewers data available
 
-            // Filter to only API reviewers - check both email addresses and unique names
+            // Filter to only API reviewers who are required - check both email addresses and unique names
             var apiReviewers = pr.Reviewers?.Where(r => 
-                _apiReviewersMembers.Contains(r.UniqueName) || 
-                _apiReviewersMembers.Contains(r.Id.ToString())).ToList();
+                (r.IsRequired == true) && // Only count required reviewers
+                (_apiReviewersMembers.Contains(r.UniqueName) || 
+                _apiReviewersMembers.Contains(r.Id.ToString()))).ToList();
 
             if (apiReviewers == null || apiReviewers.Count == 0)
             {

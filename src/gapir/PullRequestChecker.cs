@@ -297,17 +297,19 @@ public class PullRequestChecker(PullRequestCheckerOptions options)
                 gitClient, 
                 repository.Id);
 
-            // Separate into approved and pending
+            // Separate into approved, pending, and not-required
             var approvedPRs = pullRequestInfos.Where(info => info.IsApprovedByMe).ToList();
-            var pendingPRs = pullRequestInfos.Where(info => !info.IsApprovedByMe).ToList();
+            var pendingPRs = pullRequestInfos.Where(info => !info.IsApprovedByMe && info.MyVoteStatus != "---").ToList();
+            var notRequiredPRs = pullRequestInfos.Where(info => info.MyVoteStatus == "---").ToList();
 
             Console.WriteLine(); // Empty line before results
 
-            // Show approved PRs if requested
-            if (_options.ShowApproved && approvedPRs.Any())
+            // Show approved PRs if requested (including not-required ones)
+            if (_options.ShowApproved && (approvedPRs.Any() || notRequiredPRs.Any()))
             {
-                Console.WriteLine($"✓ {approvedPRs.Count} PR(s) you have already approved:");
-                displayService.DisplayApprovedPullRequestsTable(approvedPRs);
+                var allCompletedPRs = approvedPRs.Concat(notRequiredPRs).ToList();
+                Console.WriteLine($"✓ {allCompletedPRs.Count} PR(s) you have already approved or are not required to review:");
+                displayService.DisplayApprovedPullRequestsTable(allCompletedPRs);
             }
 
             // Show pending PRs
