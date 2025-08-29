@@ -97,7 +97,8 @@ var routeMappings = new Dictionary<string, string>
 ### Host Resolution Strategy
 
 **Implementation**: Hosts file modification via PowerShell
-```
+
+```PLAIN
 127.0.0.1 g
 ```
 

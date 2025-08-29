@@ -83,7 +83,7 @@ var routeMappings = new Dictionary<string, string>
 ## URL Design Patterns
 
 ### Short URL Structure
-```
+```PLAIN
 http://g/pr/{id}
 ```
 
@@ -92,7 +92,7 @@ http://g/pr/{id}
 2. **Decimal**: `http://g/pr/12041652` (backward compatibility)
 
 ### Target URL Pattern
-```
+```PLAIN
 https://dev.azure.com/msazure/One/_git/AD-AggregatorService-Workloads/pullrequest/{decimal_id}
 ```
 
