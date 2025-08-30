@@ -6,22 +6,29 @@ namespace gapir;
 /// </summary>
 public static class Log
 {
-    private static bool _isVerbose = false;
-    private static bool _useEmoji = true;
-    private static bool _jsonMode = false;
+    /// <summary>
+    /// Pre-calculated emoji prefixes to avoid repeated conditional checks during logging.
+    /// </summary>
+    private readonly struct EmojiPrefixes
+    {
+        public readonly string Information;
+        public readonly string Warning;
+        public readonly string Error;
+        public readonly string Success;
+        public readonly string Debug;
 
-    // Emoji constants - easy to switch back to colorful ones if needed
-    // To use colorful emojis, change these values:
-    private const string SUCCESS_EMOJI = "✅";   // Green check mark
-    private const string ERROR_EMOJI = "❌";     // Red X mark  
-    private const string WARNING_EMOJI = "⚠️";  // Yellow warning triangle
-    // private const string SUCCESS_EMOJI = "✓";      // Simple check mark
-    // private const string ERROR_EMOJI = "✗";        // Simple X mark
-    // private const string WARNING_EMOJI = "!";      // Simple exclamation mark
-    
-    private const string SUCCESS_TEXT = "[SUCCESS]";
-    private const string ERROR_TEXT = "[ERROR]";
-    private const string WARNING_TEXT = "[WARNING]";
+        public EmojiPrefixes(bool useEmoji)
+        {
+            Information = useEmoji ? "ℹ️ " : "";
+            Warning = useEmoji ? "⚠️ " : "";
+            Error = useEmoji ? "❌" : "";
+            Success = useEmoji ? "✅" : "";
+            Debug = useEmoji ? "🔍" : "[DEBUG]";
+        }
+    }
+
+    private static bool _isVerbose = false;
+    private static EmojiPrefixes _emojis;
 
     /// <summary>
     /// Gets whether verbose logging is currently enabled.
@@ -29,15 +36,13 @@ public static class Log
     public static bool IsVerbose => _isVerbose;
 
     /// <summary>
-    /// Initialize the logger with the specified verbosity level and output mode.
+    /// Initialize the logger with the specified verbosity level.
     /// Must be called before using any logging methods.
     /// </summary>
     /// <param name="verbose">Whether verbose logging is enabled</param>
-    /// <param name="jsonMode">Whether JSON mode is enabled (logs to stderr instead of stdout)</param>
-    public static void Initialize(bool verbose, bool jsonMode = false)
+    public static void Initialize(bool verbose)
     {
         _isVerbose = verbose;
-        _jsonMode = jsonMode;
         
         // Ensure console uses UTF-8 encoding for emoji support
         try
@@ -50,14 +55,15 @@ public static class Log
             // Ignore encoding errors, fallback to no emojis
         }
         
-        _useEmoji = DetectEmojiSupport();
+        var useEmoji = DetectEmojiSupport();
+        _emojis = new EmojiPrefixes(useEmoji);
     }
 
     /// <summary>
-    /// Gets the appropriate output stream based on JSON mode.
-    /// In JSON mode, all logging goes to stderr to keep stdout clean for JSON output.
+    /// Gets the appropriate output stream for logging.
+    /// All logging should go to stderr to keep stdout clean for actual program output.
     /// </summary>
-    private static TextWriter GetOutputStream() => _jsonMode ? Console.Error : Console.Out;
+    private static TextWriter OutputStream { get; } =  Console.Error;
 
     /// <summary>
     /// Detects if the current terminal supports emoji display.
@@ -100,8 +106,7 @@ public static class Log
             return;
         }
 
-        var emoji = _useEmoji ? "ℹ️ " : "";
-        GetOutputStream().WriteLine($"{emoji}{message}");
+        OutputStream.WriteLine($"{_emojis.Information}{message}");
     }
 
     /// <summary>
@@ -110,9 +115,8 @@ public static class Log
     /// <param name="message">The message to log</param>
     public static void Warning(string message)
     {
-        var emoji = _useEmoji ? "⚠️ " : "";
         Console.ForegroundColor = ConsoleColor.Yellow;
-        GetOutputStream().WriteLine($"{emoji}{message}");
+        OutputStream.WriteLine($"{_emojis.Warning}{message}");
         Console.ResetColor();
     }
 
@@ -122,9 +126,8 @@ public static class Log
     /// <param name="message">The message to log</param>
     public static void Error(string message)
     {
-        var emoji = _useEmoji ? "❌" : "";
         Console.ForegroundColor = ConsoleColor.Red;
-        GetOutputStream().WriteLine($"{emoji}{message}");
+        OutputStream.WriteLine($"{_emojis.Error}{message}");
         Console.ResetColor();
     }
 
@@ -139,9 +142,8 @@ public static class Log
             return;
         }
 
-        var emoji = _useEmoji ? "✅" : "";
         Console.ForegroundColor = ConsoleColor.Green;
-        GetOutputStream().WriteLine($"{emoji}{message}");
+        OutputStream.WriteLine($"{_emojis.Success}{message}");
         Console.ResetColor();
     }
 
@@ -156,9 +158,8 @@ public static class Log
             return;
         }
 
-        var emoji = _useEmoji ? "🔍" : "[DEBUG]";
         Console.ForegroundColor = ConsoleColor.Gray;
-        GetOutputStream().WriteLine($"{emoji} {message}");
+        OutputStream.WriteLine($"{_emojis.Debug} {message}");
         Console.ResetColor();
     }
 }

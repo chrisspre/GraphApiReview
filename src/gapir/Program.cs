@@ -86,8 +86,8 @@ class Program
     {
         try
         {
-            // Initialize the logger with verbosity setting and JSON mode
-            Log.Initialize(verbose, json);
+            // Initialize the logger with verbosity setting
+            Log.Initialize(verbose);
             
             if (diagnosticPr.HasValue)
             {
@@ -120,7 +120,6 @@ class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error: {ex.Message}");
             Log.Error($"Application error: {ex.Message}");
         }
     }

@@ -61,12 +61,47 @@ This document captures the key architectural decisions and development history o
 - **Flag**: `--json` / `-j` for structured output
 - **Design**: Separate rendering paths - no diagnostic information in JSON
 - **Data Model**: Clean `GapirResult` with only actual results, no internal diagnostic properties
-- **Logging Separation**: Operational messages go to stderr via `Log` class, results to stdout as JSON
+- **Logging Separation**: All operational messages go to stderr via `Log` class, JSON results to stdout
+- **Architecture Fix**: Corrected logging to always use stderr regardless of output mode
 
-**Before**: Mixed text output with diagnostic information
-**After**: Clean separation between results (JSON) and operational logging (stderr)
+**Critical Fix**: Resolved stdout/stderr mixing issue where logs went to stdout in text mode
+- **Before**: Conditional routing based on JSON flag caused mixed output streams
+- **After**: Consistent stderr routing for all diagnostic logs enables clean automation
+- **Result**: JSON output is pure, scriptable, and automation-friendly
 
-### 7. Testing Strategy
+### 7. Logging Architecture & Performance
+
+**Decision**: Implement proper stdout/stderr separation with performance-optimized emoji handling
+- **Problem**: Logs were conditionally routing to stdout/stderr based on JSON mode, causing mixed output
+- **Solution**: All diagnostic logs always go to stderr via `Log` class, regardless of output mode
+- **Performance Enhancement**: Pre-calculated emoji prefixes to eliminate repeated conditional checks
+
+**Architecture**:
+```csharp
+// Before: Repeated conditional checks on every log call
+var emoji = _useEmoji ? "❌" : "";
+
+// After: Pre-calculated struct with one-time initialization
+private readonly struct EmojiPrefixes
+{
+    public readonly string Error;
+    // ... other prefixes
+    
+    public EmojiPrefixes(bool useEmoji)
+    {
+        Error = useEmoji ? "❌" : "";
+        // ... calculated once during Initialize()
+    }
+}
+```
+
+**Benefits**:
+- Clean stdout/stderr separation enables reliable automation and JSON parsing
+- Eliminated redundant emoji support detection and prefix calculation
+- Better performance through one-time initialization vs per-call conditionals
+- Maintains excellent UX with emojis while being automation-friendly
+
+### 8. Testing Strategy
 
 **Decision**: Multi-layer testing approach enabled by architectural separation
 - **Integration Tests**: Command line options → JSON output validation
@@ -154,7 +189,8 @@ This document captures the key architectural decisions and development history o
 - **Nullable reference types**: Enabled for better null safety
 - **Modern C#**: Uses latest language features (pattern matching, collection expressions)
 - **Error handling**: Graceful degradation with fallback strategies
-- **Logging**: Structured logging with different verbosity levels
+- **Logging**: Structured logging with different verbosity levels and performance optimization
+- **Readability**: Refactored lambda expressions to named methods for better maintainability and debugging
 
 ### Testing Strategy
 - Ready for unit testing with dependency injection
