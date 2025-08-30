@@ -35,19 +35,9 @@ public class PullRequestDataService
             Log.Information($"Checking pull requests for user: {currentUserDisplayName}");
 
             // Pre-load API reviewers group members
-            HashSet<string> apiReviewersMembers;
-            if (Log.IsVerbose && !options.JsonOutput)
-            {
-                using (var groupSpinner = new Spinner("Loading API reviewers group..."))
-                {
-                    apiReviewersMembers = await GetApiReviewersGroupMembersAsync(connection);
-                    groupSpinner.Success($"Loaded {apiReviewersMembers.Count} API reviewers");
-                }
-            }
-            else
-            {
-                apiReviewersMembers = await GetApiReviewersGroupMembersAsync(connection);
-            }
+            Log.Information("Loading API reviewers group...");
+            HashSet<string> apiReviewersMembers = await GetApiReviewersGroupMembersAsync(connection);
+            Log.Success($"Loaded {apiReviewersMembers.Count} API reviewers");
 
             // Initialize analysis service
             var analysisService = new PullRequestAnalysisService(
@@ -57,31 +47,15 @@ public class PullRequestDataService
                 options.UseShortUrls);
 
             // Get pull requests assigned to the current user
-            List<GitPullRequest> pullRequests;
-            if (Log.IsVerbose && !options.JsonOutput)
+            Log.Information("Fetching pull requests...");
+            var searchCriteria = new GitPullRequestSearchCriteria()
             {
-                using (var prSpinner = new Spinner("Fetching pull requests..."))
-                {
-                    var searchCriteria = new GitPullRequestSearchCriteria()
-                    {
-                        Status = PullRequestStatus.Active,
-                        ReviewerId = currentUserId
-                    };
+                Status = PullRequestStatus.Active,
+                ReviewerId = currentUserId
+            };
 
-                    pullRequests = await gitClient.GetPullRequestsAsync(repository.Id, searchCriteria);
-                    prSpinner.Success($"Found {pullRequests.Count} assigned pull requests");
-                }
-            }
-            else
-            {
-                var searchCriteria = new GitPullRequestSearchCriteria()
-                {
-                    Status = PullRequestStatus.Active,
-                    ReviewerId = currentUserId
-                };
-
-                pullRequests = await gitClient.GetPullRequestsAsync(repository.Id, searchCriteria);
-            }
+            List<GitPullRequest> pullRequests = await gitClient.GetPullRequestsAsync(repository.Id, searchCriteria);
+            Log.Success($"Found {pullRequests.Count} assigned pull requests");
 
             // Analyze all pull requests
             var pullRequestInfos = await analysisService.AnalyzePullRequestsAsync(

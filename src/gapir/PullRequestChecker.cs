@@ -32,38 +32,20 @@ public class PullRequestChecker
         // Authentication phase
         try
         {
-            if (Log.IsVerbose && !_options.JsonOutput)
+            Log.Information("Authenticating with Azure DevOps...");
+            connection = await ConsoleAuth.AuthenticateAsync(OrganizationUrl, _options.JsonOutput);
+
+            if (connection == null)
             {
-                using (var authSpinner = new Spinner("Authenticating with Azure DevOps..."))
+                Log.Error("Authentication failed.");
+                return new GapirResult
                 {
-                    connection = await ConsoleAuth.AuthenticateAsync(OrganizationUrl, _options.JsonOutput);
-
-                    if (connection == null)
-                    {
-                        authSpinner.Error("Authentication failed");
-                        return new GapirResult
-                        {
-                            Title = "gapir (Graph API Review) - Azure DevOps Pull Request Checker",
-                            ErrorMessage = "Authentication failed"
-                        };
-                    }
-
-                    authSpinner.Success("Authentication successful");
-                }
+                    Title = "gapir (Graph API Review) - Azure DevOps Pull Request Checker",
+                    ErrorMessage = "Authentication failed"
+                };
             }
-            else
-            {
-                connection = await ConsoleAuth.AuthenticateAsync(OrganizationUrl, _options.JsonOutput);
 
-                if (connection == null)
-                {
-                    return new GapirResult
-                    {
-                        Title = "gapir (Graph API Review) - Azure DevOps Pull Request Checker",
-                        ErrorMessage = "Authentication failed"
-                    };
-                }
-            }
+            Log.Success("Authentication successful");
 
             // Get pull request data using the data service
             var dataService = new PullRequestDataService();
