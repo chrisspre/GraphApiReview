@@ -29,15 +29,62 @@ class Program
                          "These mnemonics are used in the main table for clarity and alignment."
         };
 
-        // Define options
-        var showApprovedOption = new Option<bool>(
-            aliases: ["--show-approved", "-a"],
-            description: "Show table of already approved PRs");
-
+        // Define global options
         var verboseOption = new Option<bool>(
             aliases: ["--verbose", "-v"],
             description: "Show diagnostic messages during execution");
 
+        var formatOption = new Option<string>(
+            aliases: ["--format"],
+            getDefaultValue: () => "text",
+            description: "Output format: text or json")
+        {
+            ArgumentHelpName = "FORMAT"
+        };
+
+        // Add global options to root command
+        rootCommand.AddGlobalOption(verboseOption);
+        rootCommand.AddGlobalOption(formatOption);
+
+        // Create subcommands
+        var reviewCommand = CreateReviewCommand(verboseOption, formatOption);
+        var collectReviewersCommand = CreateCollectReviewersCommand(verboseOption, formatOption);
+        var diagnosePrCommand = CreateDiagnosePrCommand(verboseOption, formatOption);
+        var showApprovedCommand = CreateShowApprovedCommand(verboseOption, formatOption);
+
+        // Add subcommands to root
+        rootCommand.AddCommand(reviewCommand);
+        rootCommand.AddCommand(collectReviewersCommand);
+        rootCommand.AddCommand(diagnosePrCommand);
+        rootCommand.AddCommand(showApprovedCommand);
+
+        // Set default behavior (review command) when no subcommand is specified
+        rootCommand.SetHandler(async (bool verbose, string format) =>
+        {
+            Log.Initialize(verbose);
+            
+            var options = new PullRequestCheckerOptions
+            {
+                ShowApproved = false,
+                UseShortUrls = true,
+                ShowDetailedTiming = false,
+                ShowDetailedInfo = false,
+                JsonOutput = format == "json"
+            };
+            
+            var checker = new PullRequestChecker(options);
+            await checker.RunAsync();
+        }, verboseOption, formatOption);
+
+        // Invoke the command
+        return await rootCommand.InvokeAsync(args);
+    }
+
+    private static Command CreateReviewCommand(Option<bool> verboseOption, Option<string> formatOption)
+    {
+        var reviewCommand = new Command("review", "Show pull requests assigned to you for review (default command)");
+
+        // Review-specific options
         var fullUrlsOption = new Option<bool>(
             aliases: ["--full-urls", "-f"],
             description: "Use full Azure DevOps URLs instead of short g URLs");
@@ -50,78 +97,100 @@ class Program
             aliases: ["--show-detailed-info", "-d"],
             description: "Show detailed information section for each pending PR");
 
-        var collectReviewersOption = new Option<bool>(
-            aliases: ["--collect-reviewers", "-c"],
-            description: "Collect required reviewers from recent PRs and generate ApiReviewersFallback.cs code");
+        reviewCommand.AddOption(fullUrlsOption);
+        reviewCommand.AddOption(detailedTimingOption);
+        reviewCommand.AddOption(showDetailedInfoOption);
 
-        var diagnosticPrOption = new Option<int?>(
-            aliases: ["--diagnose-pr"],
-            description: "Diagnose a specific PR ID to show raw reviewer data from Azure DevOps API");
-
-        var jsonOption = new Option<bool>(
-            aliases: ["--json", "-j"],
-            description: "Output results in JSON format instead of human-readable text");
-
-        // Add options to the root command
-        rootCommand.AddOption(showApprovedOption);
-        rootCommand.AddOption(verboseOption);
-        rootCommand.AddOption(fullUrlsOption);
-        rootCommand.AddOption(detailedTimingOption);
-        rootCommand.AddOption(showDetailedInfoOption);
-        rootCommand.AddOption(collectReviewersOption);
-        rootCommand.AddOption(diagnosticPrOption);
-        rootCommand.AddOption(jsonOption);
-
-        // Set the handler
-        rootCommand.SetHandler(HandleCommandAsync, showApprovedOption, verboseOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption, collectReviewersOption, diagnosticPrOption, jsonOption);
-
-        // Invoke the command
-        return await rootCommand.InvokeAsync(args);
-    }
-
-    /// <summary>
-    /// Handles the main command execution with all the parsed options.
-    /// </summary>
-    private static async Task HandleCommandAsync(bool showApproved, bool verbose, bool fullUrls, bool detailedTiming, bool showDetailedInfo, bool collectReviewers, int? diagnosticPr, bool json)
-    {
-        try
+        reviewCommand.SetHandler(async (bool verbose, string format, bool fullUrls, bool detailedTiming, bool showDetailedInfo) =>
         {
-            // Initialize the logger with verbosity setting
             Log.Initialize(verbose);
             
-            if (diagnosticPr.HasValue)
-            {
-                // Run diagnostic for specific PR
-                await DiagnosePr(diagnosticPr.Value);
-                return;
-            }
-            
-            if (collectReviewers)
-            {
-                // Run the reviewer collection functionality
-                var collector = new ReviewerCollector();
-                await collector.CollectAndGenerateAsync();
-                return;
-            }
-            
-            // Create options object
             var options = new PullRequestCheckerOptions
             {
-                ShowApproved = showApproved,
+                ShowApproved = false,
                 UseShortUrls = !fullUrls,
                 ShowDetailedTiming = detailedTiming,
                 ShowDetailedInfo = showDetailedInfo,
-                JsonOutput = json
+                JsonOutput = format == "json"
             };
             
-            // Create and run the checker
             var checker = new PullRequestChecker(options);
             await checker.RunAsync();
-        }
-        catch (Exception ex)
+        }, verboseOption, formatOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption);
+
+        return reviewCommand;
+    }
+
+    private static Command CreateCollectReviewersCommand(Option<bool> verboseOption, Option<string> formatOption)
+    {
+        var collectReviewersCommand = new Command("collect-reviewers", "Collect required reviewers from recent PRs and generate ApiReviewersFallback.cs code");
+
+        collectReviewersCommand.SetHandler(async (bool verbose, string format) =>
         {
-            Log.Error($"Application error: {ex.Message}");
-        }
+            Log.Initialize(verbose);
+            
+            var collector = new ReviewerCollector();
+            await collector.CollectAndGenerateAsync();
+        }, verboseOption, formatOption);
+
+        return collectReviewersCommand;
+    }
+
+    private static Command CreateDiagnosePrCommand(Option<bool> verboseOption, Option<string> formatOption)
+    {
+        var diagnosePrCommand = new Command("diagnose-pr", "Diagnose a specific PR ID to show raw reviewer data from Azure DevOps API");
+
+        var prIdArgument = new Argument<int>("pr-id", "The pull request ID to diagnose");
+        diagnosePrCommand.AddArgument(prIdArgument);
+
+        diagnosePrCommand.SetHandler(async (bool verbose, string format, int prId) =>
+        {
+            Log.Initialize(verbose);
+            await DiagnosePr(prId);
+        }, verboseOption, formatOption, prIdArgument);
+
+        return diagnosePrCommand;
+    }
+
+    private static Command CreateShowApprovedCommand(Option<bool> verboseOption, Option<string> formatOption)
+    {
+        var showApprovedCommand = new Command("show-approved", "Show table of already approved PRs");
+
+        // Show-approved specific options (same as review)
+        var fullUrlsOption = new Option<bool>(
+            aliases: ["--full-urls", "-f"],
+            description: "Use full Azure DevOps URLs instead of short g URLs");
+
+        var detailedTimingOption = new Option<bool>(
+            aliases: ["--detailed-timing", "-t"],
+            description: "Show detailed age column - slower due to API calls");
+
+        var showDetailedInfoOption = new Option<bool>(
+            aliases: ["--show-detailed-info", "-d"],
+            description: "Show detailed information section for each pending PR");
+
+        showApprovedCommand.AddOption(fullUrlsOption);
+        showApprovedCommand.AddOption(detailedTimingOption);
+        showApprovedCommand.AddOption(showDetailedInfoOption);
+
+        showApprovedCommand.SetHandler(async (bool verbose, string format, bool fullUrls, bool detailedTiming, bool showDetailedInfo) =>
+        {
+            Log.Initialize(verbose);
+            
+            var options = new PullRequestCheckerOptions
+            {
+                ShowApproved = true,
+                UseShortUrls = !fullUrls,
+                ShowDetailedTiming = detailedTiming,
+                ShowDetailedInfo = showDetailedInfo,
+                JsonOutput = format == "json"
+            };
+            
+            var checker = new PullRequestChecker(options);
+            await checker.RunAsync();
+        }, verboseOption, formatOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption);
+
+        return showApprovedCommand;
     }
 
     private static async Task DiagnosePr(int prId)
