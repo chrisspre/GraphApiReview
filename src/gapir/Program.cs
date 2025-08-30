@@ -58,6 +58,10 @@ class Program
             aliases: ["--diagnose-pr"],
             description: "Diagnose a specific PR ID to show raw reviewer data from Azure DevOps API");
 
+        var jsonOption = new Option<bool>(
+            aliases: ["--json", "-j"],
+            description: "Output results in JSON format instead of human-readable text");
+
         // Add options to the root command
         rootCommand.AddOption(showApprovedOption);
         rootCommand.AddOption(verboseOption);
@@ -66,14 +70,15 @@ class Program
         rootCommand.AddOption(showDetailedInfoOption);
         rootCommand.AddOption(collectReviewersOption);
         rootCommand.AddOption(diagnosticPrOption);
+        rootCommand.AddOption(jsonOption);
 
         // Set the handler
-        rootCommand.SetHandler(async (showApproved, verbose, fullUrls, detailedTiming, showDetailedInfo, collectReviewers, diagnosticPr) =>
+        rootCommand.SetHandler(async (showApproved, verbose, fullUrls, detailedTiming, showDetailedInfo, collectReviewers, diagnosticPr, json) =>
         {
             try
             {
-                // Initialize the logger with verbosity setting
-                Log.Initialize(verbose);
+                // Initialize the logger with verbosity setting and JSON mode
+                Log.Initialize(verbose, json);
                 
                 if (diagnosticPr.HasValue)
                 {
@@ -96,7 +101,8 @@ class Program
                     ShowApproved = showApproved,
                     UseShortUrls = !fullUrls,
                     ShowDetailedTiming = detailedTiming,
-                    ShowDetailedInfo = showDetailedInfo
+                    ShowDetailedInfo = showDetailedInfo,
+                    JsonOutput = json
                 };
                 
                 // Create and run the checker
@@ -108,7 +114,7 @@ class Program
                 Console.WriteLine($"Error: {ex.Message}");
                 Log.Error($"Application error: {ex.Message}");
             }
-        }, showApprovedOption, verboseOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption, collectReviewersOption, diagnosticPrOption);
+        }, showApprovedOption, verboseOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption, collectReviewersOption, diagnosticPrOption, jsonOption);
 
         // Invoke the command
         return await rootCommand.InvokeAsync(args);

@@ -36,19 +36,50 @@ This document captures the key architectural decisions and development history o
 - **After**: Summary table by default, detailed info on request (`-d` flag)
 - **Rationale**: Most users want quick overview, detailed info available when needed
 
-### 4. Code Organization
+### 4. Code Organization & Architecture
 
-**Decision**: Separate utility classes for focused responsibilities
-- **Spinner.cs**: Progress indication with professional animations
-- **PullRequestCheckerOptions.cs**: Configuration object following Options Pattern
-- **Base62.cs**: URL shortening utility
-- **Log.cs**: Logging abstraction
+**Decision**: Implement separation of concerns with dedicated service classes
+- **PullRequestChecker.cs**: Thin orchestrator handling authentication and coordination
+- **PullRequestDataService.cs**: Data fetching logic with performance optimization
+- **PullRequestRenderingService.cs**: Output formatting (text and JSON)
+- **PullRequestAnalysisService.cs**: PR analysis and status determination
+- **PullRequestDisplayService.cs**: Table formatting and display utilities
+
+**Rationale**: Better testability, single responsibility principle, performance optimization
+
+### 5. Performance Optimization
+
+**Decision**: Conditional data fetching based on command line options
+- **Problem**: Expensive approved PRs query executed regardless of whether results were shown
+- **Solution**: Only populate `ApprovedPRs` when `--show-approved` flag is specified
+- **Implementation**: Made `ApprovedPRs` nullable in `GapirResult`, conditional population in `PullRequestDataService`
+- **Benefits**: Faster execution for common use case, cleaner separation of concerns
+
+### 6. JSON Output Architecture
+
+**Decision**: Implement clean JSON output for automation and integration
+- **Flag**: `--json` / `-j` for structured output
+- **Design**: Separate rendering paths - no diagnostic information in JSON
+- **Data Model**: Clean `GapirResult` with only actual results, no internal diagnostic properties
+- **Logging Separation**: Operational messages go to stderr via `Log` class, results to stdout as JSON
+
+**Before**: Mixed text output with diagnostic information
+**After**: Clean separation between results (JSON) and operational logging (stderr)
+
+### 7. Testing Strategy
+
+**Decision**: Multi-layer testing approach enabled by architectural separation
+- **Integration Tests**: Command line options → JSON output validation
+- **Service Tests**: Individual service logic with mocked dependencies  
+- **Data Tests**: Azure DevOps API integration tests with authentication
+- **Benefits**: Isolated test failures, faster test execution, better coverage
 
 ## Command Line Interface
 
 ### Available Options
-```
--a, --show-approved       Show table of already approved PRs
+```bash
+-a, --show-approved       Show table of already approved PRs (performance: only fetches when requested)
+-j, --json                Output results as JSON for automation/integration
 -v, --verbose             Show diagnostic messages during execution  
 -f, --full-urls           Use full Azure DevOps URLs instead of short g URLs
 -t, --detailed-timing     Show detailed age column - slower due to API calls
@@ -68,9 +99,11 @@ This document captures the key architectural decisions and development history o
 - **Benefits**: Faster restores, deterministic builds, better CI/CD performance
 
 ### Runtime Performance  
+- **Conditional data fetching**: Approved PRs only fetched when `--show-approved` specified
 - **Caching**: API reviewers group cached to avoid repeated Identity API calls
 - **Selective timing**: Detailed timing only when requested (slower due to additional API calls)
-- **Parallel processing**: Ready for future async improvements
+- **Architecture optimization**: Separated data services enable targeted performance improvements
+- **JSON mode**: Streamlined output path for automation scenarios
 
 ## Authentication Strategy
 

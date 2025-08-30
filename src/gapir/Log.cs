@@ -8,6 +8,7 @@ public static class Log
 {
     private static bool _isVerbose = false;
     private static bool _useEmoji = true;
+    private static bool _jsonMode = false;
 
     // Emoji constants - easy to switch back to colorful ones if needed
     // To use colorful emojis, change these values:
@@ -28,13 +29,15 @@ public static class Log
     public static bool IsVerbose => _isVerbose;
 
     /// <summary>
-    /// Initialize the logger with the specified verbosity level.
+    /// Initialize the logger with the specified verbosity level and output mode.
     /// Must be called before using any logging methods.
     /// </summary>
     /// <param name="verbose">Whether verbose logging is enabled</param>
-    public static void Initialize(bool verbose)
+    /// <param name="jsonMode">Whether JSON mode is enabled (logs to stderr instead of stdout)</param>
+    public static void Initialize(bool verbose, bool jsonMode = false)
     {
         _isVerbose = verbose;
+        _jsonMode = jsonMode;
         
         // Ensure console uses UTF-8 encoding for emoji support
         try
@@ -49,6 +52,12 @@ public static class Log
         
         _useEmoji = DetectEmojiSupport();
     }
+
+    /// <summary>
+    /// Gets the appropriate output stream based on JSON mode.
+    /// In JSON mode, all logging goes to stderr to keep stdout clean for JSON output.
+    /// </summary>
+    private static TextWriter GetOutputStream() => _jsonMode ? Console.Error : Console.Out;
 
     /// <summary>
     /// Detects if the current terminal supports emoji display.
@@ -92,7 +101,7 @@ public static class Log
         }
 
         var emoji = _useEmoji ? "ℹ️ " : "";
-        Console.WriteLine($"{emoji}{message}");
+        GetOutputStream().WriteLine($"{emoji}{message}");
     }
 
     /// <summary>
@@ -103,7 +112,7 @@ public static class Log
     {
         var emoji = _useEmoji ? "⚠️ " : "";
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"{emoji}{message}");
+        GetOutputStream().WriteLine($"{emoji}{message}");
         Console.ResetColor();
     }
 
@@ -115,7 +124,7 @@ public static class Log
     {
         var emoji = _useEmoji ? "❌" : "";
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"{emoji}{message}");
+        GetOutputStream().WriteLine($"{emoji}{message}");
         Console.ResetColor();
     }
 
@@ -132,7 +141,7 @@ public static class Log
 
         var emoji = _useEmoji ? "✅" : "";
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"{emoji}{message}");
+        GetOutputStream().WriteLine($"{emoji}{message}");
         Console.ResetColor();
     }
 
@@ -149,7 +158,7 @@ public static class Log
 
         var emoji = _useEmoji ? "🔍" : "[DEBUG]";
         Console.ForegroundColor = ConsoleColor.Gray;
-        Console.WriteLine($"{emoji} {message}");
+        GetOutputStream().WriteLine($"{emoji} {message}");
         Console.ResetColor();
     }
 }

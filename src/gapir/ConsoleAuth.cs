@@ -23,11 +23,14 @@ public static class ConsoleAuth
     /// </summary>
     /// <param name="organizationUrl">The Azure DevOps organization URL.</param>
     /// <returns>A VssConnection if authentication succeeds, null otherwise.</returns>
-    public static async Task<VssConnection?> AuthenticateAsync(string organizationUrl)
+    public static async Task<VssConnection?> AuthenticateAsync(string organizationUrl, bool silent = false)
     {
         try
         {
-            Log.Information("Authenticating with Azure DevOps...");
+            if (!silent)
+            {
+                Log.Information("Authenticating with Azure DevOps...");
+            }
 
             // Create cache directory for better token persistence
             var cacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "gapir");
@@ -64,19 +67,19 @@ public static class ConsoleAuth
                     catch (MsalUiRequiredException)
                     {
                         Log.Warning("Cached token expired, attempting interactive authentication...");
-                        result = await PerformInteractiveAuthenticationAsync(app);
+                        result = await PerformInteractiveAuthenticationAsync(app, silent);
                     }
                 }
                 else
                 {
                     Log.Information("No cached accounts found, starting interactive authentication...");
-                    result = await PerformInteractiveAuthenticationAsync(app);
+                    result = await PerformInteractiveAuthenticationAsync(app, silent);
                 }
             }
             catch (MsalUiRequiredException)
             {
                 Log.Information("Silent authentication failed, starting interactive authentication...");
-                result = await PerformInteractiveAuthenticationAsync(app);
+                result = await PerformInteractiveAuthenticationAsync(app, silent);
             }
 
             if (result != null)
@@ -100,20 +103,23 @@ public static class ConsoleAuth
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Authentication failed: {ex.Message}");
+            Log.Error($"Authentication failed: {ex.Message}");
             if (ex.InnerException != null)
             {
-                Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+                Log.Error($"Inner exception: {ex.InnerException.Message}");
             }
             return null;
         }
     }
 
-    private static async Task<AuthenticationResult> PerformInteractiveAuthenticationAsync(IPublicClientApplication app)
+    private static async Task<AuthenticationResult> PerformInteractiveAuthenticationAsync(IPublicClientApplication app, bool silent)
     {
         try
         {
-            Log.Information("🔐 Attempting brokered authentication (Windows Hello/PIN/Biometrics)...");
+            if (!silent)
+            {
+                Log.Information("🔐 Attempting brokered authentication (Windows Hello/PIN/Biometrics)...");
+            }
 
             // Try brokered authentication first (best UX)
             var result = await app.AcquireTokenInteractive(Scopes)
@@ -126,9 +132,12 @@ public static class ConsoleAuth
         }
         catch (Exception ex)
         {
-            Log.Warning($"Brokered authentication failed: {ex.Message}");
-            Log.Information("📱 Falling back to device code flow...");
-            return await PerformDeviceCodeFlowAsync(app);
+            if (!silent)
+            {
+                Log.Warning($"Brokered authentication failed: {ex.Message}");
+                Log.Information("📱 Falling back to device code flow...");
+            }
+            return await PerformDeviceCodeFlowAsync(app, silent);
         }
     }
 
@@ -153,34 +162,37 @@ public static class ConsoleAuth
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     private static extern IntPtr GetConsoleWindow();
 
-    private static async Task<AuthenticationResult> PerformDeviceCodeFlowAsync(IPublicClientApplication app)
+    private static async Task<AuthenticationResult> PerformDeviceCodeFlowAsync(IPublicClientApplication app, bool silent)
     {
         var result = await app.AcquireTokenWithDeviceCode(Scopes, deviceCodeResult =>
         {
-            Console.WriteLine(deviceCodeResult.Message);
-            Console.WriteLine();
-
-            // Extract the device code from the message
-            var deviceCode = ExtractDeviceCode(deviceCodeResult.Message);
-            var url = ExtractUrl(deviceCodeResult.Message);
-
-            if (!string.IsNullOrEmpty(deviceCode))
+            if (!silent)
             {
-                // Copy device code to clipboard
-                CopyToClipboard(deviceCode);
-                Console.WriteLine($"✅ Device code '{deviceCode}' has been copied to your clipboard!");
-            }
+                Console.WriteLine(deviceCodeResult.Message);
+                Console.WriteLine();
 
-            if (!string.IsNullOrEmpty(url))
-            {
-                // Open browser automatically
-                OpenBrowser(url);
-                Console.WriteLine($"✅ Browser opened automatically to: {url}");
-            }
+                // Extract the device code from the message
+                var deviceCode = ExtractDeviceCode(deviceCodeResult.Message);
+                var url = ExtractUrl(deviceCodeResult.Message);
 
-            Console.WriteLine("📋 Simply paste the code (Ctrl+V) in the browser and sign in.");
-            Log.Information("💡 Tip: After first authentication, subsequent runs will use cached tokens!");
-            Console.WriteLine("⏳ Waiting for authentication...");
+                if (!string.IsNullOrEmpty(deviceCode))
+                {
+                    // Copy device code to clipboard
+                    CopyToClipboard(deviceCode);
+                    Console.WriteLine($"✅ Device code '{deviceCode}' has been copied to your clipboard!");
+                }
+
+                if (!string.IsNullOrEmpty(url))
+                {
+                    // Open browser automatically
+                    OpenBrowser(url);
+                    Console.WriteLine($"✅ Browser opened automatically to: {url}");
+                }
+
+                Console.WriteLine("📋 Simply paste the code (Ctrl+V) in the browser and sign in.");
+                Log.Information("💡 Tip: After first authentication, subsequent runs will use cached tokens!");
+                Console.WriteLine("⏳ Waiting for authentication...");
+            }
 
             return Task.FromResult(0);
         }).ExecuteAsync();

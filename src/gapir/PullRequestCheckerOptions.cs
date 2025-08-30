@@ -7,4 +7,5 @@ public class PullRequestCheckerOptions
     public bool ShowDetailedTiming { get; set; } = false;
     public bool ShowDetailedInfo { get; set; } = false;
     public bool ShowLegend { get; set; } = true;
+    public bool JsonOutput { get; set; } = false;
 }
