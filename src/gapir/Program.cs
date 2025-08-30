@@ -73,51 +73,56 @@ class Program
         rootCommand.AddOption(jsonOption);
 
         // Set the handler
-        rootCommand.SetHandler(async (showApproved, verbose, fullUrls, detailedTiming, showDetailedInfo, collectReviewers, diagnosticPr, json) =>
-        {
-            try
-            {
-                // Initialize the logger with verbosity setting and JSON mode
-                Log.Initialize(verbose, json);
-                
-                if (diagnosticPr.HasValue)
-                {
-                    // Run diagnostic for specific PR
-                    await DiagnosePr(diagnosticPr.Value);
-                    return;
-                }
-                
-                if (collectReviewers)
-                {
-                    // Run the reviewer collection functionality
-                    var collector = new ReviewerCollector();
-                    await collector.CollectAndGenerateAsync();
-                    return;
-                }
-                
-                // Create options object
-                var options = new PullRequestCheckerOptions
-                {
-                    ShowApproved = showApproved,
-                    UseShortUrls = !fullUrls,
-                    ShowDetailedTiming = detailedTiming,
-                    ShowDetailedInfo = showDetailedInfo,
-                    JsonOutput = json
-                };
-                
-                // Create and run the checker
-                var checker = new PullRequestChecker(options);
-                await checker.RunAsync();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-                Log.Error($"Application error: {ex.Message}");
-            }
-        }, showApprovedOption, verboseOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption, collectReviewersOption, diagnosticPrOption, jsonOption);
+        rootCommand.SetHandler(HandleCommandAsync, showApprovedOption, verboseOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption, collectReviewersOption, diagnosticPrOption, jsonOption);
 
         // Invoke the command
         return await rootCommand.InvokeAsync(args);
+    }
+
+    /// <summary>
+    /// Handles the main command execution with all the parsed options.
+    /// </summary>
+    private static async Task HandleCommandAsync(bool showApproved, bool verbose, bool fullUrls, bool detailedTiming, bool showDetailedInfo, bool collectReviewers, int? diagnosticPr, bool json)
+    {
+        try
+        {
+            // Initialize the logger with verbosity setting and JSON mode
+            Log.Initialize(verbose, json);
+            
+            if (diagnosticPr.HasValue)
+            {
+                // Run diagnostic for specific PR
+                await DiagnosePr(diagnosticPr.Value);
+                return;
+            }
+            
+            if (collectReviewers)
+            {
+                // Run the reviewer collection functionality
+                var collector = new ReviewerCollector();
+                await collector.CollectAndGenerateAsync();
+                return;
+            }
+            
+            // Create options object
+            var options = new PullRequestCheckerOptions
+            {
+                ShowApproved = showApproved,
+                UseShortUrls = !fullUrls,
+                ShowDetailedTiming = detailedTiming,
+                ShowDetailedInfo = showDetailedInfo,
+                JsonOutput = json
+            };
+            
+            // Create and run the checker
+            var checker = new PullRequestChecker(options);
+            await checker.RunAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+            Log.Error($"Application error: {ex.Message}");
+        }
     }
 
     private static async Task DiagnosePr(int prId)
