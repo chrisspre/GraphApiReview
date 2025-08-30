@@ -13,9 +13,10 @@ public class PullRequestDataService
     private HashSet<string>? _apiReviewersMembers;
 
     // Azure DevOps organization URL, Project and repository details
-    private const string OrganizationUrl = "https://msazure.visualstudio.com/";
-    private const string ProjectName = "One";
-    private const string RepositoryName = "AD-AggregatorService-Workloads";
+    public const string OrganizationUrl = "https://msazure.visualstudio.com/";
+
+    public const string ProjectName = "One";
+    public const string RepositoryName = "AD-AggregatorService-Workloads";
     private const string ApiReviewersGroupName = "[TEAM FOUNDATION]\\Microsoft Graph API reviewers";
 
     public async Task<GapirResult> GetPullRequestDataAsync(VssConnection connection, PullRequestCheckerOptions options)

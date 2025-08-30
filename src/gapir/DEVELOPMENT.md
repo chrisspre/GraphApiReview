@@ -51,7 +51,7 @@ This document captures the key architectural decisions and development history o
 
 **Decision**: Conditional data fetching based on command line options
 - **Problem**: Expensive approved PRs query executed regardless of whether results were shown
-- **Solution**: Only populate `ApprovedPRs` when `--show-approved` flag is specified
+- **Solution**: Only populate `ApprovedPRs` when `--approved` flag is specified
 - **Implementation**: Made `ApprovedPRs` nullable in `GapirResult`, conditional population in `PullRequestDataService`
 - **Benefits**: Faster execution for common use case, cleaner separation of concerns
 
@@ -113,7 +113,7 @@ private readonly struct EmojiPrefixes
 
 ### Available Options
 ```bash
--a, --show-approved       Show table of already approved PRs (performance: only fetches when requested)
+-a, --approved       Show table of already approved PRs (performance: only fetches when requested)
 -j, --json                Output results as JSON for automation/integration
 -v, --verbose             Show diagnostic messages during execution  
 -f, --full-urls           Use full Azure DevOps URLs instead of short g URLs
@@ -134,7 +134,7 @@ private readonly struct EmojiPrefixes
 - **Benefits**: Faster restores, deterministic builds, better CI/CD performance
 
 ### Runtime Performance  
-- **Conditional data fetching**: Approved PRs only fetched when `--show-approved` specified
+- **Conditional data fetching**: Approved PRs only fetched when `--approved` specified
 - **Caching**: API reviewers group cached to avoid repeated Identity API calls
 - **Selective timing**: Detailed timing only when requested (slower due to additional API calls)
 - **Architecture optimization**: Separated data services enable targeted performance improvements

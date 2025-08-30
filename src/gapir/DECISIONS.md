@@ -9,12 +9,12 @@ This file captures the key decisions and changes made during the August 2025## M
 
 ### Key Changes
 
-**1. Service Layer Separation**
+0. Service Layer Separation
 - **PullRequestDataService**: Isolated expensive data fetching logic
 - **PullRequestRenderingService**: Clean output formatting (text/JSON)
 - **PullRequestChecker**: Thin orchestrator handling authentication only
 
-**2. Performance Optimization**
+0. Performance Optimization
 ```csharp
 // Before: Always fetched approved PRs regardless of usage
 result.ApprovedPRs = approvedPRs.Concat(notRequiredPRs).ToList();
@@ -27,7 +27,7 @@ if (options.ShowApproved)
 // ApprovedPRs remains null when not requested
 ```
 
-**3. JSON Output Architecture**
+0. JSON Output Architecture
 ```csharp
 // Clean data model with no diagnostic pollution
 public class GapirResult
@@ -66,14 +66,14 @@ public class GapirResult
 
 ## Key Learnings
 
-1. **CLI UX Matters**: Even 1-2 second delays need progress indication
-2. **Enterprise APIs**: Always plan for inconsistent behavior and multiple fallback strategies
-3. **Options Pattern**: Essential for maintainable configuration as tools grow
-4. **Modern CLI Frameworks**: System.CommandLine significantly improves developer and user experience
-5. **Default Behavior**: Optimize for the most common use case, make advanced features opt-in
-6. **NEW**: **Performance Matters**: Expensive operations should be conditional, not default
-7. **NEW**: **Clean Separation**: Diagnostic information belongs in logging, not result data
-8. **NEW**: **Architecture Enables Testing**: Proper separation makes comprehensive testing feasible to preserve context for future GitHub Copilot interactions.
+0. **CLI UX Matters**: Even 1-2 second delays need progress indication
+0. **Enterprise APIs**: Always plan for inconsistent behavior and multiple fallback strategies
+0. **Options Pattern**: Essential for maintainable configuration as tools grow
+0. **Modern CLI Frameworks**: Syste0.CommandLine significantly improves developer and user experience
+0. **Default Behavior**: Optimize for the most common use case, make advanced features opt-in
+0. **NEW**: **Performance Matters**: Expensive operations should be conditional, not default
+0. **NEW**: **Clean Separation**: Diagnostic information belongs in logging, not result data
+0. **NEW**: **Architecture Enables Testing**: Proper separation makes comprehensive testing feasible to preserve context for future GitHub Copilot interactions.
 
 ## Major Refactoring: System.CommandLine Integration
 
@@ -83,7 +83,7 @@ public class GapirResult
 ### Before
 ```csharp
 // Manual argument parsing
-bool showApproved = args.Contains("--show-approved") || args.Contains("-a");
+bool showApproved = args.Contains("--approved") || args.Contains("-a");
 bool verbose = args.Contains("--verbose") || args.Contains("-v");
 // ... more boolean checks
 ```
@@ -92,7 +92,7 @@ bool verbose = args.Contains("--verbose") || args.Contains("-v");
 ```csharp
 // Professional CLI framework with automatic help generation
 var showApprovedOption = new Option<bool>(
-    aliases: ["--show-approved", "-a"],
+    aliases: ["--approved", "-a"],
     description: "Show table of already approved PRs");
 ```
 
@@ -162,10 +162,10 @@ public PullRequestChecker(PullRequestCheckerOptions options)
 **Problem**: Group membership queries unreliable across different Azure DevOps configurations
 
 **Solution**: Multiple fallback strategies
-1. Direct group search with expanded membership
-2. Alternative search patterns
-3. Heuristic analysis of PR reviewer history
-4. Conservative fallback to empty set
+0. Direct group search with expanded membership
+0. Alternative search patterns
+0. Heuristic analysis of PR reviewer history
+0. Conservative fallback to empty set
 
 **Key Learning**: Enterprise APIs require defensive programming with multiple fallback strategies
 
@@ -181,11 +181,11 @@ Established clear mapping from Azure DevOps vote values to human-readable status
 
 ### PR Status Analysis Priority
 Implemented priority-based logic for determining why PRs aren't completed:
-1. **REJ** (Rejected) - Highest priority, any rejection blocks
-2. **WFA** (Waiting For Author) - Author must address feedback
-3. **PRA** (Pending Reviewer Approval) - Need more API reviewer approvals
-4. **POA** (Pending Other Approvals) - Non-API reviewers pending
-5. **POL** (Policy/Build Issues) - Approvals satisfied but other blocks
+0. **REJ** (Rejected) - Highest priority, any rejection blocks
+0. **WFA** (Waiting For Author) - Author must address feedback
+0. **PRA** (Pending Reviewer Approval) - Need more API reviewer approvals
+0. **POA** (Pending Other Approvals) - Non-API reviewers pending
+0. **POL** (Policy/Build Issues) - Approvals satisfied but other blocks
 
 ### URL Strategy
 **Decision**: Default to short URLs for terminal readability
@@ -235,10 +235,10 @@ Implemented priority-based logic for determining why PRs aren't completed:
 
 ## Key Learnings
 
-1. **CLI UX Matters**: Even 1-2 second delays need progress indication
-2. **Enterprise APIs**: Always plan for inconsistent behavior and multiple fallback strategies
-3. **Options Pattern**: Essential for maintainable configuration as tools grow
-4. **Modern CLI Frameworks**: System.CommandLine significantly improves developer and user experience
-5. **Default Behavior**: Optimize for the most common use case, make advanced features opt-in
+0. **CLI UX Matters**: Even 1-2 second delays need progress indication
+0. **Enterprise APIs**: Always plan for inconsistent behavior and multiple fallback strategies
+0. **Options Pattern**: Essential for maintainable configuration as tools grow
+0. **Modern CLI Frameworks**: Syste0.CommandLine significantly improves developer and user experience
+0. **Default Behavior**: Optimize for the most common use case, make advanced features opt-in
 
 This context should help future developers and GitHub Copilot understand the reasoning behind architectural decisions and continue development in a consistent direction.
