@@ -22,7 +22,7 @@ A CLI tool for Azure DevOps pull request review management, specifically for Mic
 ```
 src/
 ├── gapir/          # Main CLI tool
-│   ├── Program.cs           # CLI entry point and --diagnose-pr command
+│   ├── Program.cs           # CLI entry point and diagnose subcommand
 │   ├── PullRequestChecker.cs # Main orchestration logic
 │   ├── Services/
 │   │   ├── PullRequestAnalysisService.cs # Core business logic with IsRequired filtering
@@ -35,7 +35,7 @@ tests/
 │   ├── Services/
 │   │   └── PullRequestAnalysisServiceTests.cs # Unit tests for core filtering logic
 │   └── Integration/
-│       └── DiagnosePrIntegrationTests.cs      # Integration tests for CLI commands
+│       └── DiagnoseIntegrationTests.cs         # Integration tests for CLI commands
 ```
 
 ## Key Implementation Details
@@ -116,7 +116,7 @@ tests/
 **Solution**: Implemented comprehensive `IsRequired` flag filtering across all analysis methods
 
 ### New Diagnostic Features
-- `--diagnose-pr <id>` command for investigating specific PR reviewer details
+- `diagnose <id>` subcommand for investigating specific PR reviewer details
 - Raw Azure DevOps API data display including all reviewer flags
 - Current user status breakdown (vote, IsRequired, IsContainer, IsFlagged)
 - Essential for troubleshooting reviewer assignment issues
@@ -140,17 +140,17 @@ tests/
 gapir
 
 # Common options
-gapir --show-approved    # Include already approved PRs and PRs you're not required to review
+gapir --approved    # Include already approved PRs and PRs you're not required to review
 gapir --full-urls       # Use full URLs instead of short links
 gapir --detailed-timing # Show detailed age info (slower)
 gapir --verbose         # Troubleshooting output
 
 # Diagnostic features
-gapir --diagnose-pr 13300322  # Investigate specific PR's reviewer details from Azure DevOps API
+gapir diagnose 13300322  # Investigate specific PR's reviewer details from Azure DevOps API
                               # Shows raw reviewer data including IsRequired, IsContainer, IsFlagged flags
                               # Useful for troubleshooting reviewer status issues
 
-gapir --collect-reviewers     # Generate ApiReviewersFallback.cs from recent PR data
+gapir collect     # Generate ApiReviewersFallback.cs from recent PR data
 gapir --version              # Show tool version
 ```
 
@@ -165,7 +165,7 @@ gapir --version              # Show tool version
 - "Why" column explains why PR isn't completed (Policy, Wait4A, etc.)
 - Helps track previously reviewed work
 
-**Diagnostic Output** (--diagnose-pr):
+**Diagnostic Output** (diagnose subcommand):
 - Raw Azure DevOps API response for specific PR
 - Shows all reviewers with their flags (IsRequired, IsContainer, IsFlagged)
 - Displays your reviewer status and vote details
@@ -226,10 +226,10 @@ dotnet tool update --global --add-source ./nupkg gapir
   - Tests `IsRequired=false` filtering for all analysis methods
   - Edge cases: null reviewers, mixed API/non-API reviewers, different vote values
   - Uses reflection to test private methods for thorough coverage
-- **Integration Tests** (`DiagnosePrIntegrationTests.cs`): 6 tests covering CLI functionality
+- **Integration Tests** (`DiagnoseIntegrationTests.cs`): 6 tests covering CLI functionality
   - Command-line argument parsing and validation
   - Error handling for invalid inputs
-  - `--diagnose-pr` command output format verification
+  - `diagnose` subcommand output format verification
 - **Manual Testing**: Authentication flows, real Azure DevOps API integration
 - **Regression Protection**: Tests ensure IsRequired filtering continues working correctly
 
@@ -240,7 +240,7 @@ dotnet test tests/gapir.Tests
 
 # Run specific test categories
 dotnet test --filter "PullRequestAnalysisServiceTests"  # Unit tests
-dotnet test --filter "DiagnosePrIntegrationTests"       # Integration tests
+dotnet test --filter "DiagnoseIntegrationTests"       # Integration tests
 ```
 
 ## Key Success Factors
@@ -268,7 +268,7 @@ The tool connects to the `msazure.visualstudio.com/One` organization's `AD-Aggre
 **Key Features**:
 - Main table shows only actionable PRs requiring attention
 - Separate approved/not-required table for completed/removed assignments  
-- `--diagnose-pr <id>` command for investigating reviewer status issues
+- `diagnose <id>` subcommand for investigating reviewer status issues
 - Brokered authentication (Windows Hello/PIN) with device code fallback
 - URL shortening integration with `kurz` service
 - 22 comprehensive tests covering filtering logic and CLI functionality

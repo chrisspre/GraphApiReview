@@ -2,7 +2,6 @@ namespace gapir;
 
 using gapir.Models;
 using gapir.Services;
-using gapir.Utilities;
 using Microsoft.VisualStudio.Services.WebApi;
 
 public class PullRequestChecker
@@ -33,7 +32,7 @@ public class PullRequestChecker
         try
         {
             Log.Information("Authenticating with Azure DevOps...");
-            connection = await ConsoleAuth.AuthenticateAsync(OrganizationUrl, _options.JsonOutput);
+            connection = await ConsoleAuth.AuthenticateAsync(OrganizationUrl);
 
             if (connection == null)
             {

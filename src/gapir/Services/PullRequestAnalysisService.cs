@@ -1,7 +1,6 @@
 namespace gapir.Services;
 
 using Microsoft.TeamFoundation.SourceControl.WebApi;
-using Microsoft.VisualStudio.Services.WebApi;
 using gapir.Models;
 
 /// <summary>

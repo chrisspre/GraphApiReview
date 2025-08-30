@@ -58,7 +58,7 @@ This document captures the key architectural decisions and development history o
 ### 6. JSON Output Architecture
 
 **Decision**: Implement clean JSON output for automation and integration
-- **Flag**: `--json` / `-j` for structured output
+- **Flag**: `--format Json` / `-j` for structured output
 - **Design**: Separate rendering paths - no diagnostic information in JSON
 - **Data Model**: Clean `GapirResult` with only actual results, no internal diagnostic properties
 - **Logging Separation**: All operational messages go to stderr via `Log` class, JSON results to stdout
@@ -114,7 +114,7 @@ private readonly struct EmojiPrefixes
 ### Available Options
 ```bash
 -a, --approved       Show table of already approved PRs (performance: only fetches when requested)
--j, --json                Output results as JSON for automation/integration
+-j, --format Json                Output results as JSON for automation/integration
 -v, --verbose             Show diagnostic messages during execution  
 -f, --full-urls           Use full Azure DevOps URLs instead of short g URLs
 -t, --detailed-timing     Show detailed age column - slower due to API calls

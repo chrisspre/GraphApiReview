@@ -3,5 +3,7 @@
   "MD022": false, // Allow headers to be indented
   "MD031": false, // Allow Fenced code blocks to be indented
   "MD032": false, // Allow Fenced code blocks to be indented
-  "MD013": false  // Allow line length to be ignored
+  "MD013": false, // Allow line length to be ignored
+  "MD029": { "style": "zero" },
+  "MD024": { "siblings_only": true }
 }

@@ -8,22 +8,24 @@ using gapir.Models;
 /// </summary>
 public class PullRequestDiagnosticRenderingService
 {
-    private readonly bool _jsonOutput;
+    private readonly Format _format;
 
-    public PullRequestDiagnosticRenderingService(bool jsonOutput = false)
+    public PullRequestDiagnosticRenderingService(Format format)
     {
-        _jsonOutput = jsonOutput;
+        _format = format;
     }
 
     public void RenderDiagnosticResult(PrDiagnosticResult result)
     {
-        if (_jsonOutput)
+        switch (_format)
         {
-            RenderJson(result);
-        }
-        else
-        {
-            RenderText(result);
+            case Format.Json:
+                RenderJson(result);
+                break;
+            case Format.Text:
+            default:
+                RenderText(result);
+                break;
         }
     }
 
@@ -41,14 +43,14 @@ public class PullRequestDiagnosticRenderingService
 
     private void RenderText(PrDiagnosticResult result)
     {
+        Console.WriteLine($"Investigating PR {result.PullRequestId} reviewer details");
+        Console.WriteLine("=====================================");
+        
         if (!string.IsNullOrEmpty(result.ErrorMessage))
         {
             Console.WriteLine($"Error: {result.ErrorMessage}");
             return;
         }
-
-        Console.WriteLine($"Investigating PR {result.PullRequestId} reviewer details...");
-        Console.WriteLine("=====================================");
         Console.WriteLine($"PR Title: {result.Title}");
         Console.WriteLine($"PR Status: {result.Status}");
         Console.WriteLine($"Created By: {result.CreatedBy}");
@@ -65,11 +67,11 @@ public class PullRequestDiagnosticRenderingService
             {
                 Console.WriteLine($"Reviewer: {reviewer.DisplayName}");
                 Console.WriteLine($"  - Unique Name: {reviewer.UniqueName}");
-                Console.WriteLine($"  - ID: {reviewer.Id}");
-                Console.WriteLine($"  - Vote: {reviewer.Vote} ({GetVoteDescription(reviewer.Vote)})");
-                Console.WriteLine($"  - IsRequired: {reviewer.IsRequired}");
+                Console.WriteLine($"  - ID:          {reviewer.Id}");
+                Console.WriteLine($"  - Vote:        {reviewer.Vote} ({GetVoteDescription(reviewer.Vote)})");
+                Console.WriteLine($"  - IsRequired:  {reviewer.IsRequired}");
                 Console.WriteLine($"  - IsContainer: {reviewer.IsContainer}");
-                Console.WriteLine($"  - IsFlagged: {reviewer.IsFlagged}");
+                Console.WriteLine($"  - IsFlagged:   {reviewer.IsFlagged}");
                 Console.WriteLine();
             }
 
@@ -78,10 +80,10 @@ public class PullRequestDiagnosticRenderingService
                 Console.WriteLine("YOUR REVIEWER STATUS:");
                 Console.WriteLine("====================");
                 Console.WriteLine("Found in reviewers list: YES");
-                Console.WriteLine($"Your Vote: {result.CurrentUserReviewer.Vote} ({GetVoteDescription(result.CurrentUserReviewer.Vote)})");
-                Console.WriteLine($"IsRequired: {result.CurrentUserReviewer.IsRequired}");
-                Console.WriteLine($"IsContainer: {result.CurrentUserReviewer.IsContainer}");
-                Console.WriteLine($"IsFlagged: {result.CurrentUserReviewer.IsFlagged}");
+                Console.WriteLine($"Your Vote:       {result.CurrentUserReviewer.Vote} ({GetVoteDescription(result.CurrentUserReviewer.Vote)})");
+                Console.WriteLine($"IsRequired:      {result.CurrentUserReviewer.IsRequired}");
+                Console.WriteLine($"IsContainer:     {result.CurrentUserReviewer.IsContainer}");
+                Console.WriteLine($"IsFlagged:       {result.CurrentUserReviewer.IsFlagged}");
             }
             else
             {

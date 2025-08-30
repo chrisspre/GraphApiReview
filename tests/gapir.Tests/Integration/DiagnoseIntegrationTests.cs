@@ -4,26 +4,26 @@ using Xunit.Abstractions;
 namespace gapir.Tests.Integration;
 
 /// <summary>
-/// Integration tests for the --diagnose-pr command functionality
+/// Integration tests for the diagnose subcommand functionality
 /// These tests validate the diagnostic output format and basic command handling
 /// </summary>
-public class DiagnosePrIntegrationTests
+public class DiagnoseIntegrationTests
 {
     private readonly ITestOutputHelper _output;
 
-    public DiagnosePrIntegrationTests(ITestOutputHelper output)
+    public DiagnoseIntegrationTests(ITestOutputHelper output)
     {
         _output = output;
     }
 
     [Fact]
-    public void DiagnosePr_WithInvalidPrId_ShowsErrorMessage()
+    public void Diagnose_WithInvalidPrId_ShowsErrorMessage()
     {
         // Arrange
         var testHelper = new TestHelper(_output);
 
         // Act
-        var result = testHelper.RunGapir("--diagnose-pr invalid-pr-id");
+        var result = testHelper.RunGapir("diagnose invalid-pr-id");
 
         // Assert
         Assert.NotEqual(0, result.ExitCode); // Should fail with invalid PR ID
@@ -31,45 +31,45 @@ public class DiagnosePrIntegrationTests
     }
 
     [Fact]
-    public void DiagnosePr_WithHelpFlag_ShowsHelp()
+    public void Diagnose_WithHelpFlag_ShowsHelp()
     {
         // Arrange
         var testHelper = new TestHelper(_output);
 
         // Act
-        var result = testHelper.RunGapir("--help");
+        var result = testHelper.RunGapir("diagnose --help");
 
         // Assert
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains("--diagnose-pr", result.Output);
+        Assert.Contains("diagnose", result.Output);
         Assert.Contains("Diagnose a specific PR ID to show raw reviewer data", result.Output);
     }
 
     [Fact]
-    public void DiagnosePr_WithoutValue_ShowsError()
+    public void Diagnose_WithoutValue_ShowsError()
     {
         // Arrange
         var testHelper = new TestHelper(_output);
 
         // Act
-        var result = testHelper.RunGapir("--diagnose-pr");
+        var result = testHelper.RunGapir("diagnose");
 
         // Assert
         Assert.NotEqual(0, result.ExitCode);
-        Assert.Contains("Required argument missing for option: '--diagnose-pr'", result.Error);
+        Assert.Contains("Required argument missing for command: 'diagnose'", result.Error);
     }
 
     [Theory]
     [InlineData("123")]
     [InlineData("13300322")] 
     [InlineData("999999999")]
-    public void DiagnosePr_WithValidFormat_AttemptsAuthentication(string prId)
+    public void Diagnose_WithValidFormat_AttemptsAuthentication(string prId)
     {
         // Arrange
         var testHelper = new TestHelper(_output);
 
         // Act
-        var result = testHelper.RunGapir($"--diagnose-pr {prId}");
+        var result = testHelper.RunGapir($"diagnose {prId}");
 
         // Assert
         // The command should attempt to diagnose the PR

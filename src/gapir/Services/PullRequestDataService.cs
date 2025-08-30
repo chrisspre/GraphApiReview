@@ -4,7 +4,6 @@ using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Identity;
 using Microsoft.VisualStudio.Services.Identity.Client;
-using gapir.Utilities;
 using gapir.Models;
 
 public class PullRequestDataService

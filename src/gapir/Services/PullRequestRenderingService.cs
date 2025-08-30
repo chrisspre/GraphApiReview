@@ -1,7 +1,6 @@
 namespace gapir.Services;
 
 using gapir.Models;
-using gapir.Utilities;
 using System.Text.Json;
 
 public class PullRequestRenderingService
@@ -15,7 +14,7 @@ public class PullRequestRenderingService
 
     public void RenderResult(GapirResult result)
     {
-        if (_options.JsonOutput)
+        if (_options.Format == Format.Json)
         {
             RenderJson(result);
         }

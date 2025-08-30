@@ -5,6 +5,6 @@ Core logic produces a well-defined data structure with all possible output secti
 Output rendering is handled separately—either as:
 
 Human-readable text (default) in the same way as it is now
-Structured JSON format (via a --json flag)
+Structured JSON format (via a --format Json flag)
 
 the integration tests then can focus mostly on presense and absence of certain sections.

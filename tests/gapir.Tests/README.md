@@ -18,7 +18,7 @@ The tests are organized using data-driven testing patterns with xUnit's `[Theory
 - **Data-driven test** using `[Theory]` with 14 test cases
 - Tests all possible combinations of flags:
   - `--verbose` / `-v` (diagnostic output control)
-  - `--show-approved` / `-a` (show already approved PRs)
+  - `--approved` / `-a` (show already approved PRs)
   - `--full-urls` / `-f` (URL format control)
 - Validates:
   - Correct verbose output behavior
@@ -30,7 +30,7 @@ The tests are organized using data-driven testing patterns with xUnit's `[Theory
 - **Data-driven test** using `[Theory]` with 5 test cases
 - Tests graceful handling of:
   - Unknown flags (`--unknown-flag`, `-x`)
-  - Invalid argument formats (`--show-approved=true`)
+  - Invalid argument formats (`--approved=true`)
   - Extra arguments (`--verbose extra-arg`)
   - Help flag precedence (`--help --verbose`)
 
@@ -48,15 +48,15 @@ The tests are organized using data-driven testing patterns with xUnit's `[Theory
 | Default | No | No | No | Baseline behavior |
 | `--verbose` | Yes | No | No | Diagnostic output |
 | `-v` | Yes | No | No | Short flag variant |
-| `--show-approved` | No | Yes | No | Include approved PRs |
+| `--approved` | No | Yes | No | Include approved PRs |
 | `-a` | No | Yes | No | Short flag variant |
-| `--show-approved --full-urls` | No | Yes | Yes | Approved + full URLs |
+| `--approved --full-urls` | No | Yes | Yes | Approved + full URLs |
 | `-a -f` | No | Yes | Yes | Short flags combined |
-| `--show-approved --verbose` | Yes | Yes | No | Approved + verbose |
+| `--approved --verbose` | Yes | Yes | No | Approved + verbose |
 | `-a -v` | Yes | Yes | No | Short flags combined |
 | `--verbose --full-urls` | Yes | No | Yes | Verbose + full URLs |
 | `-v -f` | Yes | No | Yes | Short flags combined |
-| `--show-approved --verbose --full-urls` | Yes | Yes | Yes | All flags enabled |
+| `--approved --verbose --full-urls` | Yes | Yes | Yes | All flags enabled |
 | `-a -v -f` | Yes | Yes | Yes | All short flags |
 | `--invalid-flag` | No | No | No | Graceful degradation |
 

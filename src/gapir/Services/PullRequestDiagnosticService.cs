@@ -3,7 +3,6 @@ namespace gapir.Services;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using gapir.Models;
-using gapir.Utilities;
 
 /// <summary>
 /// Service responsible for diagnosing individual pull requests and providing detailed reviewer information
