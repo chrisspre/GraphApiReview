@@ -2,8 +2,15 @@
 // Generated on: 2025-08-30 16:17:03
 // Based on analysis of recent API review pull requests (PRs with 'Microsoft Graph API reviewers' group assigned)
 
-public static readonly HashSet<string> KnownApiReviewers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+using System;
+using System.Collections.Generic;
+
+namespace Gapir;
+
+public static class GeneratedReviewers
 {
+    public static readonly HashSet<string> KnownApiReviewers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
     // Individual reviewers (email addresses only - no groups or service accounts)
     "chrispre@microsoft.com", // Christof Sprenger (31)
     "yadavgaurav@microsoft.com", // Gaurav Yadav (25)
@@ -23,4 +30,5 @@ public static readonly HashSet<string> KnownApiReviewers = new HashSet<string>(S
     "davidra@microsoft.com", // Dave Randall (1)
     "adbhale@microsoft.com", // Aditya Mukund (1)
     "garethj@microsoft.com", // Gareth Jones (1)
-};
+    };
+}
