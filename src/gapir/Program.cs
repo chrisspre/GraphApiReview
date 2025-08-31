@@ -4,7 +4,7 @@ namespace gapir;
 
 public class Program
 {
-    static async Task<int> Main(string[] args)
+    private static async Task<int> Main(string[] args)
     {
         var rootCommand = CreateRootCommand();
         return await rootCommand.InvokeAsync(args);
@@ -19,31 +19,14 @@ public class Program
         // Create the root command
         var rootCommand = new RootCommand("gapir (Graph API Review) - Azure DevOps Pull Request Checker")
         {
-            Description = $"Tools to manage Graph API Review Pull Requests. Especially to view PRs assigned to you for review.\n\n" 
-            // Description = "Checks for pull requests assigned to you for review in Azure DevOps.\n\n" +
-            //              "Status Codes (6-char mnemonics):\n" +
-            //              "  Apprvd  = Approved\n" +
-            //              "  Sugges  = Approved with suggestions\n" +
-            //              "  NoVote  = No vote\n" +
-            //              "  Wait4A  = Waiting for author\n" +
-            //              "  Reject  = Rejected\n\n" +
-            //              "Reason Codes (for approved PRs):\n" +
-            //              "  Reject  = Rejected\n" +
-            //              "  Wait4A  = Waiting for author\n" +
-            //              "  Policy  = Policy/build issues\n" +
-            //              "  PendRv  = Pending reviewer approval\n" +
-            //              "  PendOt  = Pending other approvals\n\n" +
-            //              "Columns Explained:\n" +
-            //              "  API     = API reviewers approved/assigned (Microsoft Graph API reviewers group)\n" +
-            //              "  Last By = Who made the most recent activity (Me|Reviewer|Author|Other)\n\n" +
-            //              "These mnemonics are used in the main table for clarity and alignment."
+            Description = $"Tools to manage Graph API Review Pull Requests. Especially to view PRs assigned to you for review.\n\n"
         };
 
         // Define global options
         var verboseOption = new Option<bool>(
             aliases: ["--verbose", "-v"],
             description: "Show diagnostic messages during execution");
-    
+
         var formatOption = new Option<Format>(
             aliases: ["--format", "-f"],
             getDefaultValue: () => Format.Text,
@@ -55,21 +38,15 @@ public class Program
         rootCommand.AddGlobalOption(formatOption);
 
         // Create subcommands
-        var reviewCommand = CreateReviewCommand(verboseOption, formatOption);
-        var collectCommand = CreateCollectCommand(verboseOption, formatOption);
-        var diagnoseCommand = CreateDiagnoseCommand(verboseOption, formatOption);
-        var showApprovedCommand = CreateShowApprovedCommand(verboseOption, formatOption);
-
-        // Add subcommands to root
-        rootCommand.AddCommand(reviewCommand);
-        rootCommand.AddCommand(collectCommand);
-        rootCommand.AddCommand(diagnoseCommand);
-        rootCommand.AddCommand(showApprovedCommand);
+        AddReviewCommand(rootCommand, verboseOption, formatOption);
+        AddCollectCommand(rootCommand, verboseOption, formatOption);
+        AddDiagnoseCommand(rootCommand, verboseOption, formatOption);
+        AddShowApprovedCommand(rootCommand, verboseOption, formatOption);
 
         return rootCommand;
     }
 
-    private static Command CreateReviewCommand(Option<bool> verboseOption, Option<Format> formatOption)
+    private static void AddReviewCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption)
     {
         var reviewCommand = new Command("review", "Show pull requests assigned to you for review (default command)");
 
@@ -90,33 +67,39 @@ public class Program
         reviewCommand.AddOption(detailedTimingOption);
         reviewCommand.AddOption(showDetailedInfoOption);
 
-        reviewCommand.SetHandler(async (bool verbose, Format format, bool fullUrls, bool detailedTiming, bool showDetailedInfo) =>
-        {
-            Log.Initialize(verbose);
+        reviewCommand.SetHandler(ReviewCommandHandler, verboseOption, formatOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption);
 
-            var options = new PullRequestCheckerOptions
-            {
-                ShowApproved = false,
-                UseShortUrls = !fullUrls,
-                ShowDetailedTiming = detailedTiming,
-                ShowDetailedInfo = showDetailedInfo,
-                Format = format
-            };
+        rootCommand.AddCommand(reviewCommand);
 
-            var checker = new PullRequestChecker(options);
-            await checker.RunAsync();
-        }, verboseOption, formatOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption);
-
-        return reviewCommand;
+        // this is also the default command
+        rootCommand.SetHandler(ReviewCommandHandler, verboseOption, formatOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption);
     }
 
-    private static Command CreateCollectCommand(Option<bool> verboseOption, Option<Format> formatOption)
+    internal static async Task ReviewCommandHandler(bool verbose, Format format, bool fullUrls, bool detailedTiming, bool showDetailedInfo)
+    {
+        Log.Initialize(verbose);
+
+        var options = new PullRequestCheckerOptions
+        {
+            ShowApproved = false,
+            UseShortUrls = !fullUrls,
+            ShowDetailedTiming = detailedTiming,
+            ShowDetailedInfo = showDetailedInfo,
+            Format = format
+        };
+
+        var checker = new PullRequestChecker(options);
+        await checker.RunAsync();
+    }
+
+
+    private static void AddCollectCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption)
     {
         var collectCommand = new Command("collect", "Collect required reviewers from recent PRs and generate ApiReviewersFallback.cs code");
 
         collectCommand.SetHandler(CollectCommandHandler, verboseOption, formatOption);
 
-        return collectCommand;
+        rootCommand.AddCommand(collectCommand);
     }
 
     private static async Task CollectCommandHandler(bool verbose, Format format)
@@ -127,7 +110,7 @@ public class Program
         await collector.CollectAndGenerateAsync();
     }
 
-    private static Command CreateDiagnoseCommand(Option<bool> verboseOption, Option<Format> formatOption)
+    private static void AddDiagnoseCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption)
     {
         var diagnoseCommand = new Command("diagnose", "Diagnose a specific PR ID to show raw reviewer data from Azure DevOps API");
 
@@ -139,7 +122,7 @@ public class Program
 
         diagnoseCommand.SetHandler(DiagnoseCommandHandler, verboseOption, formatOption, prIdArgument);
 
-        return diagnoseCommand;
+        rootCommand.AddCommand(diagnoseCommand);
     }
 
     private static async Task DiagnoseCommandHandler(bool verbose, Format format, int prId)
@@ -150,7 +133,7 @@ public class Program
         await diagnosticChecker.RunAsync(prId);
     }
 
-    private static Command CreateShowApprovedCommand(Option<bool> verboseOption, Option<Format> formatOption)
+    private static void AddShowApprovedCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption)
     {
         var showApprovedCommand = new Command("approved", "Show table of already approved PRs");
 
@@ -176,7 +159,7 @@ public class Program
 
         showApprovedCommand.SetHandler(ShowApprovedCommandHandler, verboseOption, formatOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption);
 
-        return showApprovedCommand;
+        rootCommand.AddCommand(showApprovedCommand);
     }
 
     private static async Task ShowApprovedCommandHandler(bool verbose, Format format, bool fullUrls, bool detailedTiming, bool showDetailedInfo)

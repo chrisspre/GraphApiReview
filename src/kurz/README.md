@@ -26,7 +26,7 @@ This will:
 - **Service Location**: `C:\Program Files\Kurz\`
 - **Service Name**: `KurzUrlRedirectService`
 - **Startup Type**: Automatic
-- **User Account**: Local SystemET Core minimal API that provides URL redirection services with support for custom short domains and Base62 encoding.
+- **User Account**: Local System minimal API that provides URL redirection services with support for custom short domains and Base62 encoding.
 
 ## Features
 

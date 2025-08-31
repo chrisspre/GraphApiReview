@@ -4,6 +4,6 @@
   "MD031": false, // Allow Fenced code blocks to be indented
   "MD032": false, // Allow Fenced code blocks to be indented
   "MD013": false, // Allow line length to be ignored
-  "MD029": { "style": "zero" },
+  "MD029": { "style": "one_or_ordered" },
   "MD024": { "siblings_only": true }
 }

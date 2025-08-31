@@ -11,7 +11,7 @@ public class ReviewerCollector
     // Repository to analyze for API reviewers
     private const string RepositoryToAnalyze = "AD-AggregatorService-Workloads";
 
-    private const int MaxPrsToAnalyze = 100;
+    private const int MaxPrsToAnalyze = 500;
 
     public async Task CollectAndGenerateAsync()
     {
@@ -94,16 +94,15 @@ public class ReviewerCollector
                                     {
                                         var displayName = reviewer.DisplayName ?? reviewerKey ?? "Unknown";
 
-                                        // it is not clear why the C# compiler doesn't see that reviewerKey is not null
-                                        var key = reviewerKey!;
+                                       
                                         
-                                        if (reviewerCounts.TryGetValue(key, out var value))
+                                        if (reviewerCounts.TryGetValue(reviewerKey!, out var value))
                                         {
-                                            value = (value.count + 1, displayName);
+                                            reviewerCounts[reviewerKey!] = (value.count + 1, displayName);
                                         }
                                         else
                                         {
-                                            reviewerCounts[key] = (1, displayName);
+                                            reviewerCounts[reviewerKey!] = (1, displayName);
                                         }
                                     }
                                 }
@@ -132,7 +131,7 @@ public class ReviewerCollector
                 .ToList();
 
             Console.WriteLine("[INFO] Required reviewers found:");
-            foreach (var (reviewer, (count, displayName)) in sortedReviewers.Take(20)) // Show top 20
+            foreach (var (reviewer, (count, displayName)) in sortedReviewers) 
             {
                 Console.WriteLine($"  {reviewer} - Required in {count} PRs");
             }
@@ -231,11 +230,11 @@ public class ReviewerCollector
                 if (!string.IsNullOrEmpty(displayName) &&
                     displayName != reviewer &&
                     !displayName.Equals(reviewer, StringComparison.OrdinalIgnoreCase) &&
-                    !displayName.Contains("@"))
+                    !displayName.Contains('@'))
                 {
-                    nameComment = $" ({displayName})";
+                    nameComment = $"{displayName} ({count})";
                 }
-                sb.AppendLine($"    \"{reviewer}\", // Required in {count} PRs{nameComment}");
+                sb.AppendLine($"    \"{reviewer}\", // {nameComment}");
             }
         }
         else

@@ -8,6 +8,8 @@ using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.WebApi;
 
 
+// Azure Active Directory PowerShell (1b730954-1685-4b74-9bfd-dac224a7b894)
+
 /// <summary>
 /// Provides console-based authentication for Azure DevOps using MSAL with brokered authentication support.
 /// </summary>
@@ -159,30 +161,30 @@ public static class ConsoleAuth
     {
         var result = await app.AcquireTokenWithDeviceCode(Scopes, deviceCodeResult =>
         {
-                Console.WriteLine(deviceCodeResult.Message);
-                Console.WriteLine();
+            Console.WriteLine(deviceCodeResult.Message);
+            Console.WriteLine();
 
-                // Extract the device code from the message
-                var deviceCode = ExtractDeviceCode(deviceCodeResult.Message);
-                var url = ExtractUrl(deviceCodeResult.Message);
+            // Extract the device code from the message
+            var deviceCode = ExtractDeviceCode(deviceCodeResult.Message);
+            var url = ExtractUrl(deviceCodeResult.Message);
 
-                if (!string.IsNullOrEmpty(deviceCode))
-                {
-                    // Copy device code to clipboard
-                    CopyToClipboard(deviceCode);
-                    Console.WriteLine($"✅ Device code '{deviceCode}' has been copied to your clipboard!");
-                }
+            if (!string.IsNullOrEmpty(deviceCode))
+            {
+                // Copy device code to clipboard
+                CopyToClipboard(deviceCode);
+                Console.WriteLine($"✅ Device code '{deviceCode}' has been copied to your clipboard!");
+            }
 
-                if (!string.IsNullOrEmpty(url))
-                {
-                    // Open browser automatically
-                    OpenBrowser(url);
-                    Console.WriteLine($"✅ Browser opened automatically to: {url}");
-                }
+            if (!string.IsNullOrEmpty(url))
+            {
+                // Open browser automatically
+                OpenBrowser(url);
+                Console.WriteLine($"✅ Browser opened automatically to: {url}");
+            }
 
-                Console.WriteLine("📋 Simply paste the code (Ctrl+V) in the browser and sign in.");
-                Log.Information("💡 Tip: After first authentication, subsequent runs will use cached tokens!");
-                Console.WriteLine("⏳ Waiting for authentication...");
+            Console.WriteLine("📋 Simply paste the code (Ctrl+V) in the browser and sign in.");
+            Log.Information("💡 Tip: After first authentication, subsequent runs will use cached tokens!");
+            Console.WriteLine("⏳ Waiting for authentication...");
 
             return Task.FromResult(0);
         }).ExecuteAsync();
