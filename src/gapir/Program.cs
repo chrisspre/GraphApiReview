@@ -1,4 +1,12 @@
 ﻿using System.CommandLine;
+using System.Diagnostics;
+using gapir.Services;
+using gapir.Handlers;
+using gapir.Models;
+using gapir.Infrastructure;
+using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace gapir;
 
@@ -6,54 +14,89 @@ public class Program
 {
     private static async Task<int> Main(string[] args)
     {
-        var rootCommand = CreateRootCommand();
+        var host = CreateHost();
+        var rootCommand = CreateRootCommand(host.Services);
         return await rootCommand.InvokeAsync(args);
+    }
+
+    /// <summary>
+    /// Creates the host with dependency injection container
+    /// </summary>
+    private static IHost CreateHost()
+    {
+        return Host.CreateDefaultBuilder()
+            .ConfigureServices(ConfigureServices)
+            .Build();
+    }
+
+    /// <summary>
+    /// Configures dependency injection services
+    /// </summary>
+    private static void ConfigureServices(IServiceCollection services)
+    {
+        // Core services from gapir.core
+        // Register services
+        services.AddSingleton<ConnectionService>();
+        services.AddScoped<ConsoleLogger>();
+        services.AddScoped<PullRequestDataLoader>();
+        services.AddScoped<PullRequestAnalyzer>();
+        services.AddScoped<PendingPullRequestService>();
+        services.AddScoped<ApprovedPullRequestService>();
+        services.AddScoped<PullRequestDiagnostics>();
+        services.AddScoped<ReviewerCollector>();
+        
+        // Command handlers
+        services.AddScoped<ReviewCommandHandler>();
+        services.AddScoped<ApprovedCommandHandler>();
+        services.AddScoped<DiagnoseCommandHandler>();
+        services.AddScoped<CollectCommandHandler>();
+        
+        // Rendering services
+        services.AddScoped<PullRequestRenderingService>();
     }
 
     /// <summary>
     /// Creates the root command with all subcommands and options.
     /// This method is extracted to enable unit testing of the command structure.
     /// </summary>
-    public static RootCommand CreateRootCommand()
+    public static RootCommand CreateRootCommand(IServiceProvider services)
     {
         // Create the root command
         var rootCommand = new RootCommand("gapir (Graph API Review) - Azure DevOps Pull Request Checker")
         {
-            Description = $"Tools to manage Graph API Review Pull Requests. Especially to view PRs assigned to you for review.\n\n"
+            Description = "Tools to manage Graph API Review Pull Requests. Especially to view PRs assigned to you for review.\n\n"
         };
 
-        // Define global options
+        // Define global options and add them to the root command
         var verboseOption = new Option<bool>(
             aliases: ["--verbose", "-v"],
             description: "Show diagnostic messages during execution");
+        rootCommand.AddGlobalOption(verboseOption);
 
         var formatOption = new Option<Format>(
             aliases: ["--format", "-f"],
             getDefaultValue: () => Format.Text,
             description: "Output format: text or json"
         );
-
-        // Add global options to root command
-        rootCommand.AddGlobalOption(verboseOption);
         rootCommand.AddGlobalOption(formatOption);
 
         // Create subcommands
-        AddReviewCommand(rootCommand, verboseOption, formatOption);
-        AddCollectCommand(rootCommand, verboseOption, formatOption);
-        AddDiagnoseCommand(rootCommand, verboseOption, formatOption);
-        AddShowApprovedCommand(rootCommand, verboseOption, formatOption);
+        AddReviewCommand(rootCommand, verboseOption, formatOption, services);
+        AddCollectCommand(rootCommand, verboseOption, formatOption, services);
+        AddDiagnoseCommand(rootCommand, verboseOption, formatOption, services);
+        AddShowApprovedCommand(rootCommand, verboseOption, formatOption, services);
 
         return rootCommand;
     }
 
-    private static void AddReviewCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption)
+    private static void AddReviewCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
     {
         var reviewCommand = new Command("review", "Show pull requests assigned to you for review (default command)");
 
         // Review-specific options
         var fullUrlsOption = new Option<bool>(
             aliases: ["--full-urls", "-u"],
-            description: "Use full Azure DevOps URLs instead of shortend http://g/ URLs");
+            description: "Use full Azure DevOps URLs instead of shortened http://g/ URLs");
 
         var detailedTimingOption = new Option<bool>(
             aliases: ["--detailed-timing", "-t"],
@@ -67,77 +110,31 @@ public class Program
         reviewCommand.AddOption(detailedTimingOption);
         reviewCommand.AddOption(showDetailedInfoOption);
 
-        reviewCommand.SetHandler(ReviewCommandHandler, verboseOption, formatOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption);
+        reviewCommand.SetHandler(async (globalOptions, reviewOptions) =>
+        {
+            var handler = services.GetRequiredService<ReviewCommandHandler>();
+            await handler.HandleAsync(reviewOptions, globalOptions);
+        },
+        new GlobalOptionsBinder(verboseOption, formatOption),
+        new ReviewOptionsBinder(fullUrlsOption, detailedTimingOption, showDetailedInfoOption));
 
         rootCommand.AddCommand(reviewCommand);
 
-        // this is also the default command
-        rootCommand.SetHandler(ReviewCommandHandler, verboseOption, formatOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption);
-    }
-
-    internal static async Task ReviewCommandHandler(bool verbose, Format format, bool fullUrls, bool detailedTiming, bool showDetailedInfo)
-    {
-        Log.Initialize(verbose);
-
-        var options = new PullRequestCheckerOptions
+        // This is also the default command
+        rootCommand.SetHandler(async (globalOptions, reviewOptions) =>
         {
-            ShowApproved = false,
-            UseShortUrls = !fullUrls,
-            ShowDetailedTiming = detailedTiming,
-            ShowDetailedInfo = showDetailedInfo,
-            Format = format
-        };
-
-        var checker = new PullRequestChecker(options);
-        await checker.RunAsync();
+            var handler = services.GetRequiredService<ReviewCommandHandler>();
+            await handler.HandleAsync(reviewOptions, globalOptions);
+        },
+        new GlobalOptionsBinder(verboseOption, formatOption),
+        new ReviewOptionsBinder(fullUrlsOption, detailedTimingOption, showDetailedInfoOption));
     }
 
-
-    private static void AddCollectCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption)
-    {
-        var collectCommand = new Command("collect", "Collect required reviewers from recent PRs and generate ApiReviewersFallback.cs code");
-
-        collectCommand.SetHandler(CollectCommandHandler, verboseOption, formatOption);
-
-        rootCommand.AddCommand(collectCommand);
-    }
-
-    private static async Task CollectCommandHandler(bool verbose, Format format)
-    {
-        Log.Initialize(verbose);
-
-        var collector = new ReviewerCollector();
-        await collector.CollectAndGenerateAsync();
-    }
-
-    private static void AddDiagnoseCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption)
-    {
-        var diagnoseCommand = new Command("diagnose", "Diagnose a specific PR ID to show raw reviewer data from Azure DevOps API");
-
-        var prIdArgument = new Argument<int>("id", "The pull request ID to diagnose");
-
-        diagnoseCommand.AddOption(verboseOption);
-        diagnoseCommand.AddOption(formatOption);
-        diagnoseCommand.AddArgument(prIdArgument);
-
-        diagnoseCommand.SetHandler(DiagnoseCommandHandler, verboseOption, formatOption, prIdArgument);
-
-        rootCommand.AddCommand(diagnoseCommand);
-    }
-
-    private static async Task DiagnoseCommandHandler(bool verbose, Format format, int prId)
-    {
-        Log.Initialize(verbose);
-
-        var diagnosticChecker = new PullRequestDiagnosticChecker(format);
-        await diagnosticChecker.RunAsync(prId);
-    }
-
-    private static void AddShowApprovedCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption)
+    private static void AddShowApprovedCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
     {
         var showApprovedCommand = new Command("approved", "Show table of already approved PRs");
 
-        // approved specific options (same as review)
+        // Approved specific options
         var fullUrlsOption = new Option<bool>(
             aliases: ["--full-urls", "-u"],
             description: "Use full Azure DevOps URLs instead of short g URLs");
@@ -150,32 +147,60 @@ public class Program
             aliases: ["--show-detailed-info", "-d"],
             description: "Show detailed information section for each pending PR");
 
-        showApprovedCommand.AddOption(verboseOption);
-        showApprovedCommand.AddOption(formatOption);
         showApprovedCommand.AddOption(fullUrlsOption);
         showApprovedCommand.AddOption(detailedTimingOption);
         showApprovedCommand.AddOption(showDetailedInfoOption);
 
-
-        showApprovedCommand.SetHandler(ShowApprovedCommandHandler, verboseOption, formatOption, fullUrlsOption, detailedTimingOption, showDetailedInfoOption);
+        showApprovedCommand.SetHandler(async (globalOptions, approvedOptions) =>
+        {
+            var handler = services.GetRequiredService<ApprovedCommandHandler>();
+            await handler.HandleAsync(approvedOptions, globalOptions);
+        },
+        new GlobalOptionsBinder(verboseOption, formatOption),
+        new ApprovedOptionsBinder(fullUrlsOption, detailedTimingOption, showDetailedInfoOption));
 
         rootCommand.AddCommand(showApprovedCommand);
     }
 
-    private static async Task ShowApprovedCommandHandler(bool verbose, Format format, bool fullUrls, bool detailedTiming, bool showDetailedInfo)
+    private static void AddDiagnoseCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
     {
-        Log.Initialize(verbose);
+        var diagnoseCommand = new Command("diagnose", "Diagnose a specific PR ID to show raw reviewer data from Azure DevOps API");
 
-        var options = new PullRequestCheckerOptions
+        var pullRequestIdArgument = new Argument<int>(
+            name: "id",
+            description: "The ID of the pull request to diagnose");
+
+        diagnoseCommand.AddArgument(pullRequestIdArgument);
+
+        diagnoseCommand.SetHandler(async (globalOptions, diagnoseOptions) =>
         {
-            ShowApproved = true,
-            UseShortUrls = !fullUrls,
-            ShowDetailedTiming = detailedTiming,
-            ShowDetailedInfo = showDetailedInfo,
-            Format = format
-        };
+            var handler = services.GetRequiredService<DiagnoseCommandHandler>();
+            await handler.HandleAsync(diagnoseOptions, globalOptions);
+        },
+        new GlobalOptionsBinder(verboseOption, formatOption),
+        new DiagnoseOptionsBinder(pullRequestIdArgument));
 
-        var checker = new PullRequestChecker(options);
-        await checker.RunAsync();
+        rootCommand.AddCommand(diagnoseCommand);
+    }
+
+    private static void AddCollectCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
+    {
+        var collectCommand = new Command("collect", "Collect required reviewers from recent PRs and generate ApiReviewersFallback.cs code");
+
+        var dryRunOption = new Option<bool>(
+            aliases: ["--dry-run", "-n"],
+            description: "Show what would be generated without writing to file");
+
+        collectCommand.AddOption(dryRunOption);
+
+        collectCommand.SetHandler(async (globalOptions, collectOptions) =>
+        {
+            var handler = services.GetRequiredService<CollectCommandHandler>();
+            await handler.HandleAsync(collectOptions, globalOptions);
+        },
+        new GlobalOptionsBinder(verboseOption, formatOption),
+        new CollectOptionsBinder(dryRunOption));
+
+        rootCommand.AddCommand(collectCommand);
     }
 }

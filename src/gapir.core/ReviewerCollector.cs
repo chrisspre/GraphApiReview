@@ -1,56 +1,59 @@
+using gapir.Services;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
+using Microsoft.VisualStudio.Services.WebApi;
 using System.Text;
 
 namespace gapir;
 
 public class ReviewerCollector
 {
-    private const string Organization = "https://dev.azure.com/msazure";
-    private const string Project = "One";
-
-    // Repository to analyze for API reviewers
-    private const string RepositoryToAnalyze = "AD-AggregatorService-Workloads";
 
     private const int MaxPrsToAnalyze = 500;
 
     public async Task CollectAndGenerateAsync()
+    {
+        // Get authenticated connection
+        using var connection = await ConsoleAuth.AuthenticateAsync();
+        if (connection == null)
+        {
+            Console.WriteLine("[ERROR] Authentication failed.");
+            return;
+        }
+
+        await CollectAndGenerateAsync(connection);
+    }
+
+    public async Task CollectAndGenerateAsync(VssConnection connection)
     {
         Console.WriteLine("Pull Request Required Reviewers Analyzer");
         Console.WriteLine(new string('=', 50));
 
         try
         {
-            // Get authenticated connection
-            using var connection = await ConsoleAuth.AuthenticateAsync(Organization);
-            if (connection == null)
-            {
-                Console.WriteLine("[ERROR] Authentication failed.");
-                return;
-            }
 
             var gitClient = connection.GetClient<GitHttpClient>();
             var reviewerCounts = new Dictionary<string, (int count, string displayName)>();
 
-            Console.WriteLine($"\n[INFO] Analyzing repository: {RepositoryToAnalyze}");
+            Console.WriteLine($"\n[INFO] Analyzing repository: {AdoConfig.RepositoryName}");
             Console.WriteLine($"[INFO] Fetching recent pull requests (limit: {MaxPrsToAnalyze})...");
 
             try
             {
                 // Get recent completed PRs
                 var prs = await gitClient.GetPullRequestsAsync(
-                    project: Project,
-                    repositoryId: RepositoryToAnalyze,
+                    project: AdoConfig.ProjectName,
+                    repositoryId: AdoConfig.RepositoryName,
                     searchCriteria: new GitPullRequestSearchCriteria
                     {
                         Status = PullRequestStatus.Completed
                     },
                     top: MaxPrsToAnalyze);
 
-                Console.WriteLine($"[OK] Found {prs.Count} completed pull requests in {RepositoryToAnalyze}");
+                Console.WriteLine($"[OK] Found {prs.Count} completed pull requests in {AdoConfig.RepositoryName}");
 
                 if (prs.Count == 0)
                 {
-                    Console.WriteLine($"[SKIP] No PRs found in {RepositoryToAnalyze}, skipping...");
+                    Console.WriteLine($"[SKIP] No PRs found in {AdoConfig.RepositoryName}, skipping...");
                     return;
                 }
 
@@ -63,8 +66,8 @@ public class ReviewerCollector
                     {
                         // Get detailed PR with reviewers
                         var detailedPr = await gitClient.GetPullRequestAsync(
-                            project: Project,
-                            repositoryId: RepositoryToAnalyze,
+                            project: AdoConfig.ProjectName,
+                            repositoryId: AdoConfig.RepositoryName,
                             pullRequestId: pr.PullRequestId);
 
                         if (detailedPr?.Reviewers != null)
@@ -115,11 +118,11 @@ public class ReviewerCollector
                     }
                 }
 
-                Console.WriteLine($"[INFO] Found {apiReviewPrsFound} API review PRs in {RepositoryToAnalyze}");
+                Console.WriteLine($"[INFO] Found {apiReviewPrsFound} API review PRs in {AdoConfig.RepositoryName}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] Failed to access repository {RepositoryToAnalyze}: {ex.Message}");
+                Console.WriteLine($"[ERROR] Failed to access repository {AdoConfig.RepositoryName}: {ex.Message}");
             }
 
             Console.WriteLine($"\n[OK] Analysis complete, found {reviewerCounts.Count} unique API reviewers from API review PRs");

@@ -11,18 +11,17 @@ public class PullRequestAnalysisService
     private readonly HashSet<string> _apiReviewersMembers;
     private readonly Guid _currentUserId;
     private readonly string _currentUserDisplayName;
-    private readonly bool _useShortUrls;
+    // private readonly bool _useShortUrls;
 
     public PullRequestAnalysisService(
-        HashSet<string> apiReviewersMembers, 
+        HashSet<string> apiReviewersGroupMembers, 
         Guid currentUserId, 
-        string currentUserDisplayName,
-        bool useShortUrls = true)
+        string currentUserDisplayName)
     {
-        _apiReviewersMembers = apiReviewersMembers;
+        _apiReviewersMembers = apiReviewersGroupMembers;
         _currentUserId = currentUserId;
         _currentUserDisplayName = currentUserDisplayName;
-        _useShortUrls = useShortUrls;
+        // _useShortUrls = useShortUrls;
     }
 
     /// <summary>
@@ -38,8 +37,8 @@ public class PullRequestAnalysisService
             ApiApprovalRatio = GetApiApprovalRatio(pr),
             TimeAssigned = GetTimeAssignedToReviewer(pr),
             PendingReason = GetPendingReason(pr),
-            ShortUrl = GetShortUrl(pr),
-            FullUrl = GetFullUrl(pr)
+            // ShortUrl = GetShortUrl(pr),
+            // FullUrl = GetFullUrl(pr)
         };
 
         // Get last change info (requires async call)
@@ -192,26 +191,19 @@ public class PullRequestAnalysisService
         }
     }
 
-    private string GetShortUrl(GitPullRequest pr)
-    {
-        if (_useShortUrls)
-        {
-            // Use Base62 encoding for shorter URLs
-            string base62Id = gapir.Utilities.Base62.Encode(pr.PullRequestId);
-            return $"http://g/pr/{base62Id}";
-        }
-        else
-        {
-            return GetFullUrl(pr);
-        }
-    }
-
-    private string GetFullUrl(GitPullRequest pr)
-    {
-        const string ProjectName = "One";
-        const string RepositoryName = "AD-AggregatorService-Workloads";
-        return $"https://msazure.visualstudio.com/{ProjectName}/_git/{RepositoryName}/pullrequest/{pr.PullRequestId}";
-    }
+    // private string GetShortUrl(GitPullRequest pr)
+    // {
+    //     if (_useShortUrls)
+    //     {
+    //         // Use Base62 encoding for shorter URLs
+    //         string base62Id = Base62.Encode(pr.PullRequestId);
+    //         return $"http://g/pr/{base62Id}";
+    //     }
+    //     else
+    //     {
+    //         return GetFullUrl(pr);
+    //     }
+    // }
 
     private async Task<string> GetLastChangeInfoAsync(GitHttpClient gitClient, Guid repositoryId, GitPullRequest pr)
     {

@@ -14,12 +14,19 @@ public class PullRequestInfo
     public string LastChangeInfo { get; set; } = string.Empty;
     public string PendingReason { get; set; } = string.Empty;
     public bool IsApprovedByMe { get; set; }
-    public string ShortUrl { get; set; } = string.Empty;
-    public string FullUrl { get; set; } = string.Empty;
+
+
+    [Obsolete("should not be a concern of core library")]    public string ShortUrl { get; set; } = string.Empty;
+    [Obsolete("should not be a concern of core library")] public string FullUrl { get; set; } = string.Empty;
 
     // Calculated properties for easy access
     public string Title => PullRequest?.Title ?? string.Empty;
     public string AuthorName => PullRequest?.CreatedBy?.DisplayName ?? string.Empty;
     public DateTime CreationDate => PullRequest?.CreationDate ?? DateTime.MinValue;
     public int PullRequestId => PullRequest?.PullRequestId ?? 0;
+    
+    /// <summary>
+    /// Indicates if the pull request is completed (merged, abandoned, or closed)
+    /// </summary>
+    public bool IsCompleted => PullRequest?.Status != Microsoft.TeamFoundation.SourceControl.WebApi.PullRequestStatus.Active;
 }

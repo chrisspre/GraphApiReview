@@ -72,9 +72,9 @@ public class CommandLineParsingTests
     /// <summary>
     /// Helper method to extract options for review and approved commands
     /// </summary>
-    private static PullRequestCheckerOptions ExtractPullRequestOptions(ParseResult parseResult, bool showApproved = false)
+    private static PullRequestRenderingOptions ExtractPullRequestOptions(ParseResult parseResult, bool showApproved = false)
     {
-        return new PullRequestCheckerOptions
+        return new PullRequestRenderingOptions
         {
             ShowApproved = showApproved,
             UseShortUrls = !parseResult.GetValueForOption<bool>("--full-urls"),

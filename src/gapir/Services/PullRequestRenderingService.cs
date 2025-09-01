@@ -5,77 +5,170 @@ using System.Text.Json;
 
 public class PullRequestRenderingService
 {
-    private readonly PullRequestCheckerOptions _options;
-
-    public PullRequestRenderingService(PullRequestCheckerOptions options)
+    /// <summary>
+    /// Renders pending pull requests result
+    /// </summary>
+    public void RenderPendingPullRequests(PendingPullRequestResult result, PullRequestRenderingOptions options)
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
-    }
-
-    public void RenderResult(GapirResult result)
-    {
-        if (_options.Format == Format.Json)
+        if (options.Format == Format.Json)
         {
-            RenderJson(result);
+            RenderPendingJson(result);
         }
         else
         {
-            RenderText(result);
+            RenderPendingText(result, options);
         }
     }
 
-    private void RenderJson(GapirResult result)
+    /// <summary>
+    /// Renders approved pull requests result
+    /// </summary>
+    public void RenderApprovedPullRequests(ApprovedPullRequestResult result, PullRequestRenderingOptions options)
     {
-        var options = new JsonSerializerOptions
+        if (options.Format == Format.Json)
+        {
+            RenderApprovedJson(result);
+        }
+        else
+        {
+            RenderApprovedText(result, options);
+        }
+    }
+
+    /// <summary>
+    /// Legacy method for backward compatibility - will be removed
+    /// </summary>
+    [Obsolete("Use RenderPendingPullRequests or RenderApprovedPullRequests instead")]
+    public void RenderResult(GapirResult result)
+    {
+        var options = new PullRequestRenderingOptions
+        {
+            UseShortUrls = true,
+            ShowDetailedTiming = false,
+            ShowDetailedInfo = false,
+            Format = Format.Text
+        };
+
+        if (result.PendingPRs?.Any() == true)
+        {
+            var pendingResult = new PendingPullRequestResult
+            {
+                PendingPullRequests = result.PendingPRs,
+                Statistics = new PullRequestStatistics
+                {
+                    TotalAssigned = result.PendingPRs.Count + (result.ApprovedPRs?.Count ?? 0),
+                    PendingReview = result.PendingPRs.Count,
+                    AlreadyApproved = result.ApprovedPRs?.Count ?? 0
+                },
+                CurrentUserDisplayName = "Current User"
+            };
+            RenderPendingPullRequests(pendingResult, options);
+        }
+    }
+
+    private void RenderPendingJson(PendingPullRequestResult result)
+    {
+        var jsonOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
         
-        var json = JsonSerializer.Serialize(result, options);
+        var json = JsonSerializer.Serialize(new
+        {
+            Type = "PendingPullRequests",
+            User = result.CurrentUserDisplayName,
+            Statistics = result.Statistics,
+            PullRequests = result.PendingPullRequests
+        }, jsonOptions);
+        
         Console.WriteLine(json);
     }
 
-    private void RenderText(GapirResult result)
+    private void RenderApprovedJson(ApprovedPullRequestResult result)
     {
-        Console.WriteLine(result.Title);
+        var jsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        
+        var json = JsonSerializer.Serialize(new
+        {
+            Type = "ApprovedPullRequests",
+            User = result.CurrentUserDisplayName,
+            Statistics = result.Statistics,
+            PullRequests = result.ApprovedPullRequests
+        }, jsonOptions);
+        
+        Console.WriteLine(json);
+    }
+
+    private void RenderPendingText(PendingPullRequestResult result, PullRequestRenderingOptions options)
+    {
+        Console.WriteLine("gapir (Graph API Review) - Pull Requests Pending Review");
         Console.WriteLine("===============================================================");
         Console.WriteLine();
 
-        if (result.ErrorMessage != null)
+        var pendingPRs = result.PendingPullRequests.ToList();
+        
+        Console.WriteLine($"⏳ {pendingPRs.Count} incomplete PR(s) assigned to {result.CurrentUserDisplayName}:");
+        
+        if (pendingPRs.Any())
         {
-            Log.Error($"Error: {result.ErrorMessage}");
-            return;
-        }
-
-        // Show approved PRs if they are populated (regardless of the option)
-        if (result.ApprovedPRs?.Any() == true)
-        {
-            Console.WriteLine($"✓ {result.ApprovedPRs.Count} PR(s) you have already approved or are not required to review:");
-            RenderApprovedPRsTable(result.ApprovedPRs);
-        }
-
-        // Show pending PRs
-        Console.WriteLine($"⏳ {result.PendingPRs.Count} incomplete PR(s) assigned to you:");
-        if (result.PendingPRs.Any())
-        {
-            RenderPendingPRsTable(result.PendingPRs);
+            RenderPendingPRsTable(pendingPRs, options);
         }
         else
         {
             Console.WriteLine("No pull requests found requiring your review.");
         }
+
+        // Show statistics
+        RenderStatistics(result.Statistics);
     }
 
-    private void RenderApprovedPRsTable(List<PullRequestInfo> approvedPRs)
+    private void RenderApprovedText(ApprovedPullRequestResult result, PullRequestRenderingOptions options)
     {
-        var displayService = new PullRequestDisplayService(_options.UseShortUrls, _options.ShowDetailedTiming);
+        Console.WriteLine("gapir (Graph API Review) - Already Approved Pull Requests");
+        Console.WriteLine("===============================================================");
+        Console.WriteLine();
+
+        var approvedPRs = result.ApprovedPullRequests.ToList();
+        
+        Console.WriteLine($"✓ {approvedPRs.Count} PR(s) already approved by {result.CurrentUserDisplayName}:");
+        
+        if (approvedPRs.Any())
+        {
+            RenderApprovedPRsTable(approvedPRs, options);
+        }
+        else
+        {
+            Console.WriteLine("No approved pull requests found.");
+        }
+
+        // Show statistics
+        RenderStatistics(result.Statistics);
+    }
+
+    private void RenderStatistics(PullRequestStatistics stats)
+    {
+        Console.WriteLine();
+        Console.WriteLine("Statistics:");
+        Console.WriteLine($"  Total Assigned: {stats.TotalAssigned}");
+        Console.WriteLine($"  Pending Review: {stats.PendingReview}");
+        Console.WriteLine($"  Already Approved: {stats.AlreadyApproved}");
+        Console.WriteLine($"  Completed: {stats.Completed}");
+    }
+
+    private void RenderApprovedPRsTable(List<PullRequestInfo> approvedPRs, PullRequestRenderingOptions options)
+    {
+        var displayService = new PullRequestDisplayService(options.UseShortUrls, options.ShowDetailedTiming);
         displayService.DisplayApprovedPullRequestsTable(approvedPRs);
     }
 
-    private void RenderPendingPRsTable(List<PullRequestInfo> pendingPRs)
+    private void RenderPendingPRsTable(List<PullRequestInfo> pendingPRs, PullRequestRenderingOptions options)
     {
-        var displayService = new PullRequestDisplayService(_options.UseShortUrls, _options.ShowDetailedTiming);
+        var displayService = new PullRequestDisplayService(options.UseShortUrls, options.ShowDetailedTiming);
         displayService.DisplayPullRequestsTable(pendingPRs);
     }
 }

@@ -15,7 +15,7 @@ public class PullRequestDiagnosticRenderingService
         _format = format;
     }
 
-    public void RenderDiagnosticResult(PrDiagnosticResult result)
+    public void RenderDiagnosticResult(PullRequestDiagnosticResult result)
     {
         switch (_format)
         {
@@ -29,7 +29,7 @@ public class PullRequestDiagnosticRenderingService
         }
     }
 
-    private void RenderJson(PrDiagnosticResult result)
+    private void RenderJson(PullRequestDiagnosticResult result)
     {
         var options = new JsonSerializerOptions
         {
@@ -41,7 +41,7 @@ public class PullRequestDiagnosticRenderingService
         Console.WriteLine(json);
     }
 
-    private void RenderText(PrDiagnosticResult result)
+    private void RenderText(PullRequestDiagnosticResult result)
     {
         Console.WriteLine($"Investigating PR {result.PullRequestId} reviewer details");
         Console.WriteLine("=====================================");

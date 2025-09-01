@@ -1,5 +1,6 @@
 namespace gapir.Services;
 
+[Obsolete("This class is obsolete. Use PullRequestRenderingService directly.")]
 /// <summary>
 /// Service responsible for displaying pull request information in formatted tables
 /// </summary>
@@ -213,10 +214,10 @@ public class PullRequestDisplayService
     {
         if (string.IsNullOrEmpty(input))
             return string.Empty;
-            
+
         if (input.Length <= maxLength)
             return input;
-            
+
         return input.Substring(0, maxLength - 3) + "...";
     }
 }

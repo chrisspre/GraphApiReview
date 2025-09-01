@@ -29,11 +29,17 @@ public static class Log
 
     private static bool _isVerbose = false;
     private static EmojiPrefixes _emojis;
+    private static bool _isInitialized = false;
 
     /// <summary>
     /// Gets whether verbose logging is currently enabled.
     /// </summary>
     public static bool IsVerbose => _isVerbose;
+
+    /// <summary>
+    /// Gets whether the logger has been initialized.
+    /// </summary>
+    public static bool IsInitialized => _isInitialized;
 
     /// <summary>
     /// Initialize the logger with the specified verbosity level.
@@ -43,6 +49,7 @@ public static class Log
     public static void Initialize(bool verbose)
     {
         _isVerbose = verbose;
+        _isInitialized = true;
         
         // Ensure console uses UTF-8 encoding for emoji support
         try

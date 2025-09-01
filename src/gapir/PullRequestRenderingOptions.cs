@@ -1,11 +1,11 @@
 namespace gapir;
 
-public class PullRequestCheckerOptions
+public class PullRequestRenderingOptions
 {
-    public bool ShowApproved { get; set; } = false;
+    // public bool ShowApproved { get; set; } = false;
     public bool UseShortUrls { get; set; } = true;
     public bool ShowDetailedTiming { get; set; } = false;
     public bool ShowDetailedInfo { get; set; } = false;
-    public bool ShowLegend { get; set; } = true;
+    // public bool ShowLegend { get; set; } = true;
     public Format Format { get; set; } = Format.Text;
 }

@@ -5,7 +5,7 @@ using Microsoft.TeamFoundation.SourceControl.WebApi;
 /// <summary>
 /// Result model for pull request diagnostic information
 /// </summary>
-public class PrDiagnosticResult
+public class PullRequestDiagnosticResult
 {
     public int PullRequestId { get; set; }
     public string Title { get; set; } = string.Empty;

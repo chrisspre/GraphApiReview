@@ -1,145 +1,61 @@
 namespace gapir.Services;
 
-using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Identity;
 using Microsoft.VisualStudio.Services.Identity.Client;
-using gapir.Models;
 
-public class PullRequestDataService
+public class ApiReviewersGroupService
 {
-    // Cache for API reviewers group members to avoid repeated API calls
-    private HashSet<string>? _apiReviewersMembers;
 
-    // Azure DevOps organization URL, Project and repository details
-    public const string OrganizationUrl = "https://msazure.visualstudio.com/";
-
-    public const string ProjectName = "One";
-    public const string RepositoryName = "AD-AggregatorService-Workloads";
-    private const string ApiReviewersGroupName = "[TEAM FOUNDATION]\\Microsoft Graph API reviewers";
-
-    public async Task<GapirResult> GetPullRequestDataAsync(VssConnection connection, PullRequestCheckerOptions options)
+    public async Task<HashSet<string>> GetGroupMembersAsync(VssConnection connection)
     {
-        var result = new GapirResult
-        {
-            Title = "gapir (Graph API Review) - Azure DevOps Pull Request Checker"
-        };
-
-        try
-        {
-            // Get repository information first
-            var gitClient = connection.GetClient<GitHttpClient>();
-            var repository = await gitClient.GetRepositoryAsync(ProjectName, RepositoryName);
-
-            var (currentUserId, currentUserDisplayName) = GetCurrentUserInfo(connection);
-            Log.Information($"Checking pull requests for user: {currentUserDisplayName}");
-
-            // Pre-load API reviewers group members
-            Log.Information("Loading API reviewers group...");
-            HashSet<string> apiReviewersMembers = await GetApiReviewersGroupMembersAsync(connection);
-            Log.Success($"Loaded {apiReviewersMembers.Count} API reviewers");
-
-            // Initialize analysis service
-            var analysisService = new PullRequestAnalysisService(
-                apiReviewersMembers, 
-                currentUserId, 
-                currentUserDisplayName, 
-                options.UseShortUrls);
-
-            // Get pull requests assigned to the current user
-            Log.Information("Fetching pull requests...");
-            var searchCriteria = new GitPullRequestSearchCriteria()
-            {
-                Status = PullRequestStatus.Active,
-                ReviewerId = currentUserId
-            };
-
-            List<GitPullRequest> pullRequests = await gitClient.GetPullRequestsAsync(repository.Id, searchCriteria);
-            Log.Success($"Found {pullRequests.Count} assigned pull requests");
-
-            // Analyze all pull requests
-            var pullRequestInfos = await analysisService.AnalyzePullRequestsAsync(
-                pullRequests, 
-                gitClient, 
-                repository.Id);
-
-            // Always populate pending PRs (core functionality)
-            var pendingPRs = pullRequestInfos.Where(info => !info.IsApprovedByMe && info.MyVoteStatus != "---").ToList();
-            result.PendingPRs = pendingPRs;
-
-            // Only populate approved PRs if requested (expensive operation)
-            if (options.ShowApproved)
-            {
-                var approvedPRs = pullRequestInfos.Where(info => info.IsApprovedByMe).ToList();
-                var notRequiredPRs = pullRequestInfos.Where(info => info.MyVoteStatus == "---").ToList();
-                result.ApprovedPRs = approvedPRs.Concat(notRequiredPRs).ToList();
-            }
-
-            // Log the API reviewers status (but don't include in JSON result)
-            if (!apiReviewersMembers.Any())
-            {
-                Log.Warning("No API reviewers found via group membership, using static fallback");
-            }
-        }
-        catch (Exception ex)
-        {
-            result.ErrorMessage = ex.Message;
-            Log.Error($"Error occurred while checking pull requests: {ex.Message}");
-        }
-
-        return result;
-    }
-
-    private async Task<HashSet<string>> GetApiReviewersGroupMembersAsync(VssConnection connection)
-    {
-        if (_apiReviewersMembers != null)
-            return _apiReviewersMembers;
+        HashSet<string> groupMembers;
 
         try
         {
             var identityClient = connection.GetClient<IdentityHttpClient>();
 
-            Log.Information($"Fetching API reviewers group: {ApiReviewersGroupName}");
+            Log.Information($"Fetching API reviewers group: {AdoConfig.ReviewersGroupName}");
 
             // Step 1: Find the group by exact name
             var searchResults = await identityClient.ReadIdentitiesAsync(
                 IdentitySearchFilter.General,
-                ApiReviewersGroupName,
+                AdoConfig.ReviewersGroupName,
                 queryMembership: QueryMembership.None);
 
             var apiGroup = searchResults?.FirstOrDefault(i =>
-                i.DisplayName?.Equals(ApiReviewersGroupName, StringComparison.OrdinalIgnoreCase) == true);
+                i.DisplayName?.Equals(AdoConfig.ReviewersGroupName, StringComparison.OrdinalIgnoreCase) == true);
 
             if (apiGroup != null)
             {
                 Log.Information($"Found group: {apiGroup.DisplayName}, Id: {apiGroup.Id}");
 
                 // Step 2: Get group members with recursive expansion
-                _apiReviewersMembers = await ExpandGroupMembersRecursively(identityClient, apiGroup.Id);
+                groupMembers = await ExpandGroupMembersRecursively(identityClient, apiGroup.Id);
 
-                Log.Information($"Found {_apiReviewersMembers.Count} API reviewers via group membership");
+                Log.Information($"Found {groupMembers.Count} API reviewers via group membership");
             }
             else
             {
-                Log.Warning($"Group '{ApiReviewersGroupName}' not found");
-                _apiReviewersMembers = new HashSet<string>();
+                Log.Warning($"Group '{AdoConfig.ReviewersGroupName}' not found");
+                groupMembers = new HashSet<string>();
             }
 
             // Step 3: Use static fallback if no members found
-            if (_apiReviewersMembers.Count == 0)
+            if (groupMembers.Count == 0)
             {
                 Log.Warning("No API reviewers found via group membership, using static fallback");
-                _apiReviewersMembers = GetStaticApiReviewersFallback();
+                groupMembers = GetStaticApiReviewersFallback();
             }
         }
         catch (Exception ex)
         {
             Log.Error($"Error fetching API reviewers: {ex.Message}");
             Log.Information("Using static fallback list");
-            _apiReviewersMembers = GetStaticApiReviewersFallback();
+            groupMembers = GetStaticApiReviewersFallback();
         }
 
-        return _apiReviewersMembers;
+        return groupMembers;
     }
 
     private async Task<HashSet<string>> ExpandGroupMembersRecursively(IdentityHttpClient identityClient, Guid groupId)
@@ -250,16 +166,4 @@ public class PullRequestDataService
         return new HashSet<string>(ApiReviewersFallback.KnownApiReviewers, StringComparer.OrdinalIgnoreCase);
     }
 
-    private (Guid UserId, string DisplayName) GetCurrentUserInfo(VssConnection connection)
-    {
-        try
-        {
-            var currentUser = connection.AuthorizedIdentity;
-            return (currentUser.Id, currentUser.DisplayName);
-        }
-        catch
-        {
-            return (Guid.Empty, "Unknown User");
-        }
-    }
 }

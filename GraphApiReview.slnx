@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/gapir.core/gapir.core.csproj" />
     <Project Path="src/gapir/gapir.csproj" />
     <Project Path="src/kurz/kurz.csproj" />
   </Folder>

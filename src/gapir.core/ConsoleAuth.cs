@@ -2,6 +2,7 @@ namespace gapir;
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using gapir.Services;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Broker;
 using Microsoft.VisualStudio.Services.Client;
@@ -16,16 +17,21 @@ using Microsoft.VisualStudio.Services.WebApi;
 public static class ConsoleAuth
 {
     // Azure CLI App ID for Device Code Flow 
-    private static readonly string ClientId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"; // Azure CLI Client ID
+    // Azure CLI Client ID
     private static readonly string Authority = "https://login.microsoftonline.com/common";
-    private static readonly string[] Scopes = ["499b84ac-1321-427f-aa17-267ca6975798/.default"]; // Azure DevOps scope
+    private static readonly string[] Scopes = [
+        "499b84ac-1321-427f-aa17-267ca6975798/.default", // Azure DevOps scope
+        //  "499b84ac-1321-427f-aa17-267ca6975798/user_impersonation"  // Azure DevOps user impersonation
+        "https://graph.microsoft.com/User.Read", // Read user profile
+        "https://graph.microsoft.com/GroupMember.Read.All" // Read group members
+    ];
 
     /// <summary>
     /// Authenticates with Azure DevOps and returns a VssConnection.
     /// </summary>
     /// <param name="organizationUrl">The Azure DevOps organization URL.</param>
     /// <returns>A VssConnection if authentication succeeds, null otherwise.</returns>
-    public static async Task<VssConnection?> AuthenticateAsync(string organizationUrl)
+    public static async Task<VssConnection?> AuthenticateAsync()
     {
         try
         {
@@ -38,7 +44,7 @@ public static class ConsoleAuth
             // Create the MSAL client with brokered authentication support
             var brokerOptions = new BrokerOptions(BrokerOptions.OperatingSystems.Windows);
             var app = PublicClientApplicationBuilder
-                .Create(ClientId)
+                .Create(AdoConfig.ClientId)
                 .WithAuthority(Authority)
                 .WithRedirectUri("http://localhost")
                 .WithBroker(brokerOptions) // Enable brokered authentication (WAM)
@@ -87,7 +93,7 @@ public static class ConsoleAuth
                 // Create VssConnection with the access token
                 var token = new VssAadToken("Bearer", result.AccessToken);
                 var credentials = new VssAadCredential(token);
-                var connection = new VssConnection(new Uri(organizationUrl), credentials);
+                var connection = new VssConnection(new Uri(AdoConfig.OrganizationUrl), credentials);
 
                 // Test the connection
                 Log.Information("Testing connection...");
