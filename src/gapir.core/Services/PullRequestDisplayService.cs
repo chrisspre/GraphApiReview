@@ -1,10 +1,12 @@
 namespace gapir.Services;
 
+using System.Text.RegularExpressions;
+
 [Obsolete("This class is obsolete. Use PullRequestRenderingService directly.")]
 /// <summary>
 /// Service responsible for displaying pull request information in formatted tables
 /// </summary>
-public class PullRequestDisplayService
+public partial class PullRequestDisplayService
 {
     private readonly bool _useShortUrls;
     private readonly bool _showDetailedTiming;
@@ -191,15 +193,18 @@ public class PullRequestDisplayService
         if (string.IsNullOrEmpty(title))
             return title;
 
+        // Remove square bracket prefixes (e.g., "[xyz:SoA]", "[DirectoryServices]")
+        var cleaned = SquareBracketPrefixRegex().Replace(title, "");
+
         // Remove all dashes and replace with spaces
-        var cleaned = title.Replace("-", " ");
+        cleaned = cleaned.Replace("-", " ");
 
         // Remove trailing numbers (like issue numbers)
         // Pattern: removes numbers at the end, optionally preceded by spaces or special chars
-        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"^\s*\d+\s*", "");
+        cleaned = NumbersPrefixRegex().Replace(cleaned, "");
 
         // Remove extra whitespace
-        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", " ").Trim();
+        cleaned = SimplifySpacesRegex().Replace(cleaned, " ").Trim();
 
         // Truncate to 30 characters for table display
         if (cleaned.Length > 30)
@@ -220,4 +225,13 @@ public class PullRequestDisplayService
 
         return input.Substring(0, maxLength - 3) + "...";
     }
+
+    [GeneratedRegex(@"^\s*\[[^\]]+\]\s*")]
+    private static partial Regex SquareBracketPrefixRegex();
+    
+    [GeneratedRegex(@"^\s*\d+\s*")]
+    private static partial Regex NumbersPrefixRegex();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex SimplifySpacesRegex();
 }

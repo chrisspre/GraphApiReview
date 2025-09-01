@@ -16,7 +16,8 @@ A CLI tool to check Azure DevOps pull requests assigned to you for review.
 - **Clean Titles**: Automatically cleans and shortens PR titles for better readability
 - **Age Tracking**: Shows how long PRs have been waiting for review
 - **Smart Filtering**: Focus on what needs your attention
-- **Separation of Concerns**: Clean architecture with separated data fetching and rendering
+
+📖 **[Architecture Documentation](ARCHITECTURE.md)** - Detailed technical documentation, design decisions, and development patterns
 
 ## Quick Start
 
@@ -87,20 +88,54 @@ When using `--format Json`, gapir outputs clean structured data:
 
 ## 🔗 kurz (URL Shortener Service)
 
-A web service for creating short URLs used by the gapir tool for cleaner output.
+A lightweight web service for creating short URLs used by the gapir tool for cleaner terminal output.
 
 **Features:**
-- 🔗 **Base62 Encoding**: Creates compact PR URLs like `g/abc123`
-- ⚡ **Fast Redirects**: Lightweight service for quick URL resolution
-- 🛠️ **Simple Setup**: Single executable with minimal configuration
+- 🔗 **Base62 Encoding**: Creates compact PR URLs like `http://g/pr/OwAc` (Base62) or `http://g/pr/12041652` (decimal)
+- ⚡ **Fast Redirects**: Lightweight ASP.NET Core minimal API for quick URL resolution
+- 🛠️ **Windows Service**: Easy installation with auto-start capability
+- 🌐 **Custom Domain**: Automatic hosts file management for clean URLs
 
-### Setup
+### Quick Start
 ```bash
+# Run locally (requires Administrator for port 80)
 cd src/kurz
 dotnet run
+
+# Install as Windows service (PowerShell as Administrator)
+cd src/kurz
+.\Install-Service.ps1
 ```
 
-The service runs on `http://localhost:5067` by default.
+### Service Management
+```powershell
+.\Install-Service.ps1 status      # Check service status  
+.\Install-Service.ps1 uninstall   # Remove the service
+```
+
+**Examples:**
+- `http://g/pr/OwAc` → redirects to PR #12041652 (Base62 decoded)
+- `http://g/pr/12041652` → redirects to PR #12041652 (decimal)
+
+The service runs on `http://localhost:80` by default and automatically manages the hosts file entry for the `g` domain.
+
+## 🧪 Testing
+
+Comprehensive integration tests are available in `tests/gapir.Tests/`:
+
+```bash
+# Run all tests
+dotnet test
+
+# Run tests with verbose output
+dotnet test --verbosity normal
+```
+
+**Test Coverage:**
+- Help command functionality (`--help`, `-h`)
+- Flag combinations (`--verbose`, `--approved`, `--full-urls`)
+- Edge cases and error handling
+- JSON output validation
 
 ## 🤝 Contributing
 
