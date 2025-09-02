@@ -15,10 +15,6 @@ public class PullRequestInfo
     public string PendingReason { get; set; } = string.Empty;
     public bool IsApprovedByMe { get; set; }
 
-
-    [Obsolete("should not be a concern of core library")]    public string ShortUrl { get; set; } = string.Empty;
-    [Obsolete("should not be a concern of core library")] public string FullUrl { get; set; } = string.Empty;
-
     // Calculated properties for easy access
     public string Title => PullRequest?.Title ?? string.Empty;
     public string AuthorName => PullRequest?.CreatedBy?.DisplayName ?? string.Empty;

@@ -53,6 +53,7 @@ public class Program
         
         // Rendering services
         services.AddScoped<PullRequestRenderingService>();
+        services.AddScoped<UrlGeneratorService>();
     }
 
     /// <summary>

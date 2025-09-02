@@ -8,19 +8,17 @@ using System.Text.RegularExpressions;
 /// </summary>
 public partial class PullRequestDisplayService
 {
-    private readonly bool _useShortUrls;
     private readonly bool _showDetailedTiming;
 
     public PullRequestDisplayService(bool useShortUrls = true, bool showDetailedTiming = false)
     {
-        _useShortUrls = useShortUrls;
         _showDetailedTiming = showDetailedTiming;
     }
 
     /// <summary>
     /// Displays approved PRs in a simpler format
     /// </summary>
-    public void DisplayApprovedPullRequestsTable(List<Models.PullRequestInfo> pullRequestInfos)
+    public void DisplayApprovedPullRequestsTable(List<Models.PullRequestInfo> pullRequestInfos, Func<int, string> urlGenerator)
     {
         if (!pullRequestInfos.Any())
         {
@@ -50,7 +48,7 @@ public partial class PullRequestDisplayService
         foreach (var info in pullRequestInfos)
         {
             var pr = info.PullRequest;
-            var url = _useShortUrls ? info.ShortUrl : info.FullUrl;
+            var url = urlGenerator(info.PullRequestId);
             var reason = info.PendingReason;
 
             if (_showDetailedTiming)
@@ -70,7 +68,7 @@ public partial class PullRequestDisplayService
     /// <summary>
     /// Displays a formatted table of pull requests
     /// </summary>
-    public void DisplayPullRequestsTable(List<Models.PullRequestInfo> pullRequestInfos)
+    public void DisplayPullRequestsTable(List<Models.PullRequestInfo> pullRequestInfos, Func<int, string> urlGenerator)
     {
         if (!pullRequestInfos.Any())
         {
@@ -87,7 +85,7 @@ public partial class PullRequestDisplayService
         {
             var pr = info.PullRequest;
             var cleanedTitle = ShortenTitle(pr.Title);
-            var url = _useShortUrls ? info.ShortUrl : info.FullUrl;
+            var url = urlGenerator(info.PullRequestId);
 
             rows.Add(new string[]
             {

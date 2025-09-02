@@ -5,6 +5,13 @@ using System.Text.Json;
 
 public class PullRequestRenderingService
 {
+    private readonly UrlGeneratorService _urlGenerator;
+
+    public PullRequestRenderingService(UrlGeneratorService urlGenerator)
+    {
+        _urlGenerator = urlGenerator;
+    }
+
     /// <summary>
     /// Renders pending pull requests result
     /// </summary>
@@ -137,12 +144,12 @@ public class PullRequestRenderingService
     private void RenderApprovedPRsTable(List<PullRequestInfo> approvedPRs, PullRequestRenderingOptions options)
     {
         var displayService = new PullRequestDisplayService(options.UseShortUrls, options.ShowDetailedTiming);
-        displayService.DisplayApprovedPullRequestsTable(approvedPRs);
+        displayService.DisplayApprovedPullRequestsTable(approvedPRs, id => _urlGenerator.GenerateUrl(id, options.UseShortUrls));
     }
 
     private void RenderPendingPRsTable(List<PullRequestInfo> pendingPRs, PullRequestRenderingOptions options)
     {
         var displayService = new PullRequestDisplayService(options.UseShortUrls, options.ShowDetailedTiming);
-        displayService.DisplayPullRequestsTable(pendingPRs);
+        displayService.DisplayPullRequestsTable(pendingPRs, id => _urlGenerator.GenerateUrl(id, options.UseShortUrls));
     }
 }
