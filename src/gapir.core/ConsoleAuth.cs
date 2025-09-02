@@ -16,15 +16,8 @@ using Microsoft.VisualStudio.Services.WebApi;
 /// </summary>
 public static class ConsoleAuth
 {
-    // Azure CLI App ID for Device Code Flow 
-    // Azure CLI Client ID
     private static readonly string Authority = "https://login.microsoftonline.com/common";
-    private static readonly string[] Scopes = [
-        "499b84ac-1321-427f-aa17-267ca6975798/.default", // Azure DevOps scope
-        //  "499b84ac-1321-427f-aa17-267ca6975798/user_impersonation"  // Azure DevOps user impersonation
-        "https://graph.microsoft.com/User.Read", // Read user profile
-        "https://graph.microsoft.com/GroupMember.Read.All" // Read group members
-    ];
+    private static readonly string[] Scopes = ["499b84ac-1321-427f-aa17-267ca6975798/.default"]; // Azure DevOps scope
 
     /// <summary>
     /// Authenticates with Azure DevOps and returns a VssConnection.
@@ -46,7 +39,7 @@ public static class ConsoleAuth
             var app = PublicClientApplicationBuilder
                 .Create(AdoConfig.ClientId)
                 .WithAuthority(Authority)
-                .WithRedirectUri("http://localhost")
+                .WithRedirectUri($"ms-appx-web://microsoft.aad.brokerplugin/{AdoConfig.ClientId}")
                 .WithBroker(brokerOptions) // Enable brokered authentication (WAM)
                 .Build();
 

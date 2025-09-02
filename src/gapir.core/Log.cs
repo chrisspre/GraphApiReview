@@ -19,11 +19,11 @@ public static class Log
 
         public EmojiPrefixes(bool useEmoji)
         {
-            Information = useEmoji ? "ℹ️ " : "";
-            Warning = useEmoji ? "⚠️ " : "";
-            Error = useEmoji ? "❌" : "";
-            Success = useEmoji ? "✅" : "";
-            Debug = useEmoji ? "🔍" : "[DEBUG]";
+            Information = useEmoji ? "ℹ️ " : "[INFO]";
+            Warning     = useEmoji ? "⚠️ " : "[WARN]";
+            Error       = useEmoji ? "❌ " : "[ERROR]";
+            Success     = useEmoji ? "✅ " : "[SUCCESS]";
+            Debug       = useEmoji ? "🔍 " : "[DEBUG]";
         }
     }
 

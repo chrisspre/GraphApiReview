@@ -40,8 +40,7 @@ public class PullRequestAnalyzer
         {
             TotalAssigned = prList.Count,
             PendingReview = FilterPendingPullRequests(prList).Count(),
-            AlreadyApproved = FilterApprovedPullRequests(prList).Count(),
-            Completed = prList.Count(pr => pr.IsCompleted)
+            AlreadyApproved = FilterApprovedPullRequests(prList).Count()
         };
     }
 }
@@ -54,5 +53,4 @@ public class PullRequestStatistics
     public int TotalAssigned { get; set; }
     public int PendingReview { get; set; }
     public int AlreadyApproved { get; set; }
-    public int Completed { get; set; }
 }

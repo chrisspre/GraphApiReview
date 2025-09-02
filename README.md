@@ -137,6 +137,21 @@ dotnet test --verbosity normal
 - Edge cases and error handling
 - JSON output validation
 
+## 🛠️ Development
+
+### Feature Flags
+
+The tool includes optional features that can be enabled at compile time:
+
+**Statistics Display** (disabled by default):
+```bash
+# Enable statistics in output (shows Total/Pending/Approved counts)
+dotnet build -p:DefineConstants=ENABLE_STATISTICS
+
+# Build normally (statistics hidden)
+dotnet build
+```
+
 ## 🤝 Contributing
 
 1`. Fork the repository

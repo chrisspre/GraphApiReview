@@ -35,37 +35,6 @@ public class PullRequestRenderingService
         }
     }
 
-    /// <summary>
-    /// Legacy method for backward compatibility - will be removed
-    /// </summary>
-    [Obsolete("Use RenderPendingPullRequests or RenderApprovedPullRequests instead")]
-    public void RenderResult(GapirResult result)
-    {
-        var options = new PullRequestRenderingOptions
-        {
-            UseShortUrls = true,
-            ShowDetailedTiming = false,
-            ShowDetailedInfo = false,
-            Format = Format.Text
-        };
-
-        if (result.PendingPRs?.Any() == true)
-        {
-            var pendingResult = new PendingPullRequestResult
-            {
-                PendingPullRequests = result.PendingPRs,
-                Statistics = new PullRequestStatistics
-                {
-                    TotalAssigned = result.PendingPRs.Count + (result.ApprovedPRs?.Count ?? 0),
-                    PendingReview = result.PendingPRs.Count,
-                    AlreadyApproved = result.ApprovedPRs?.Count ?? 0
-                },
-                CurrentUserDisplayName = "Current User"
-            };
-            RenderPendingPullRequests(pendingResult, options);
-        }
-    }
-
     private void RenderPendingJson(PendingPullRequestResult result)
     {
         var jsonOptions = new JsonSerializerOptions
@@ -123,8 +92,10 @@ public class PullRequestRenderingService
             Console.WriteLine("No pull requests found requiring your review.");
         }
 
+#if ENABLE_STATISTICS
         // Show statistics
         RenderStatistics(result.Statistics);
+#endif
     }
 
     private void RenderApprovedText(ApprovedPullRequestResult result, PullRequestRenderingOptions options)
@@ -146,10 +117,13 @@ public class PullRequestRenderingService
             Console.WriteLine("No approved pull requests found.");
         }
 
+#if ENABLE_STATISTICS
         // Show statistics
         RenderStatistics(result.Statistics);
+#endif
     }
 
+#if ENABLE_STATISTICS
     private void RenderStatistics(PullRequestStatistics stats)
     {
         Console.WriteLine();
@@ -157,8 +131,8 @@ public class PullRequestRenderingService
         Console.WriteLine($"  Total Assigned: {stats.TotalAssigned}");
         Console.WriteLine($"  Pending Review: {stats.PendingReview}");
         Console.WriteLine($"  Already Approved: {stats.AlreadyApproved}");
-        Console.WriteLine($"  Completed: {stats.Completed}");
     }
+#endif
 
     private void RenderApprovedPRsTable(List<PullRequestInfo> approvedPRs, PullRequestRenderingOptions options)
     {
