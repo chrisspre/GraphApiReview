@@ -19,6 +19,10 @@ public static class ConsoleAuth
     private static readonly string Authority = "https://login.microsoftonline.com/common";
     private static readonly string[] Scopes = ["499b84ac-1321-427f-aa17-267ca6975798/.default"]; // Azure DevOps scope
 
+    // private static readonly string TenantId = "common";
+    private static readonly string TenantId = "72f988bf-86f1-41af-91ab-2d7cd011db47"; // microsoft.onmicrosoft.com
+
+
     /// <summary>
     /// Authenticates with Azure DevOps and returns a VssConnection.
     /// </summary>
@@ -39,6 +43,7 @@ public static class ConsoleAuth
             var app = PublicClientApplicationBuilder
                 .Create(AdoConfig.ClientId)
                 .WithAuthority(Authority)
+                .WithTenantId(TenantId)
                 .WithRedirectUri($"ms-appx-web://microsoft.aad.brokerplugin/{AdoConfig.ClientId}")
                 .WithBroker(brokerOptions) // Enable brokered authentication (WAM)
                 .Build();

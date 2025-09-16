@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -11,8 +11,8 @@
     
     <!-- Global Tool Configuration -->
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>gapir</ToolCommandName>
-    <PackageId>gapir</PackageId>
+    <ToolCommandName>groupcheck</ToolCommandName>
+    <PackageId>groupcheck</PackageId>
     <PackageVersion>1.0.0</PackageVersion>
     
     <!-- Version Synchronization - Make all versions consistent -->
@@ -22,34 +22,28 @@
     <AssemblyInformationalVersion>1.0.0</AssemblyInformationalVersion>
     
     <Authors>Christof Sprenger</Authors>
-    <Description>gapir (Graph API Review) - A CLI tool to check Azure DevOps API Review pull requests assigned to you</Description>
+    <Description>groupcheck - A CLI tool to check Azure AD group membership using Microsoft Graph API</Description>
     <Copyright>Copyright © 2025</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/chrisspre/gapir-tool</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>azure-devops;pull-requests;cli;tool;gapir</PackageTags>
+    <PackageTags>azure-ad;graph-api;groups;cli;tool;groupcheck</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.73.1" />
-    <PackageReference Include="Microsoft.TeamFoundationServer.Client" Version="16.205.1" />
-    <PackageReference Include="Microsoft.VisualStudio.Services.Client" Version="16.205.1" />
-    <PackageReference Include="Microsoft.VisualStudio.Services.InteractiveClient" Version="16.205.1" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.73.1" />
+    <PackageReference Include="Microsoft.Graph" Version="5.87.0" />
+    <PackageReference Include="Azure.Core" Version="1.44.1" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <PackageReference Include="System.Windows.Extensions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Graph" Version="5.62.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\gapir.core\gapir.core.csproj" />
+    <ProjectReference Include="..\gapir\gapir.csproj" />
   </ItemGroup>
 
 </Project>

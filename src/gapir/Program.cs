@@ -50,10 +50,15 @@ public class Program
         services.AddScoped<ApprovedCommandHandler>();
         services.AddScoped<DiagnoseCommandHandler>();
         services.AddScoped<CollectCommandHandler>();
+        services.AddScoped<BaffinoCommandHandler>();
         
         // Rendering services
         services.AddScoped<PullRequestRenderingService>();
         services.AddScoped<UrlGeneratorService>();
+        
+        // Baffino services
+        services.AddScoped<GraphAuthenticationService>();
+        services.AddScoped<BaffinoPreferencesService>();
     }
 
     /// <summary>
@@ -86,6 +91,7 @@ public class Program
         AddCollectCommand(rootCommand, verboseOption, formatOption, services);
         AddDiagnoseCommand(rootCommand, verboseOption, formatOption, services);
         AddShowApprovedCommand(rootCommand, verboseOption, formatOption, services);
+        AddBaffinoCommand(rootCommand, verboseOption, formatOption, services);
 
         return rootCommand;
     }
@@ -203,5 +209,62 @@ public class Program
         new CollectOptionsBinder(dryRunOption));
 
         rootCommand.AddCommand(collectCommand);
+    }
+
+    private static void AddBaffinoCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
+    {
+        var baffinoCommand = new Command("baffino", "Manage Teams Baffino preferences");
+
+        // Create get subcommand
+        var getCommand = new Command("get", "Get current Baffino preferences");
+        var getFormatOption = new Option<string>(
+            name: "--format",
+            description: "Output format: table (default), json")
+        {
+            IsRequired = false
+        };
+        getFormatOption.SetDefaultValue("table");
+        getFormatOption.AddAlias("-f");
+
+        var showAllOption = new Option<bool>(
+            name: "--all",
+            description: "Show all preferences (default shows only time allocation)")
+        {
+            IsRequired = false
+        };
+        showAllOption.AddAlias("-a");
+
+        getCommand.AddOption(getFormatOption);
+        getCommand.AddOption(showAllOption);
+        getCommand.SetHandler(async (format, showAll, verbose) =>
+        {
+            var handler = services.GetRequiredService<BaffinoCommandHandler>();
+            var result = await handler.HandleGetPreferencesAsync(format, verbose, showAll);
+            Environment.Exit(result);
+        }, getFormatOption, showAllOption, verboseOption);
+
+        // Create set subcommand
+        var setCommand = new Command("set", "Set Baffino preferences");
+        var timeAllocationOption = new Option<int>(
+            name: "--time-allocation",
+            description: "Time allocation value (0-100)")
+        {
+            IsRequired = true
+        };
+        timeAllocationOption.AddAlias("-t");
+
+        setCommand.AddOption(timeAllocationOption);
+        setCommand.SetHandler(async (timeAllocation, verbose) =>
+        {
+            var handler = services.GetRequiredService<BaffinoCommandHandler>();
+            var result = await handler.HandleSetTimeAllocationAsync(timeAllocation, verbose);
+            Environment.Exit(result);
+        }, timeAllocationOption, verboseOption);
+
+        // Add subcommands to baffino command
+        baffinoCommand.AddCommand(getCommand);
+        baffinoCommand.AddCommand(setCommand);
+
+        rootCommand.AddCommand(baffinoCommand);
     }
 }
