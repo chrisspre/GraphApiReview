@@ -32,16 +32,14 @@ services.AddScoped<ConnectionService>();
 services.AddScoped<PullRequestRenderingService>();
 services.AddScoped<PullRequestDataService>();
 services.AddScoped<PullRequestAnalysisService>();
-services.AddScoped<PullRequestDisplayService>();
 ```
 
 #### Core Services
 
 - **PullRequestChecker**: Thin orchestrator handling authentication and coordination
 - **PullRequestDataService**: Isolated expensive data fetching logic with performance optimization
-- **PullRequestRenderingService**: Clean output formatting (text/JSON)
+- **PullRequestRenderingService**: Clean output formatting (text/JSON) and table display
 - **PullRequestAnalysisService**: PR analysis and status determination logic
-- **PullRequestDisplayService**: Table formatting and display utilities
 - **ConnectionService**: Azure DevOps API integration
 - **ConsoleLogger**: Simplified logging with settable verbosity
 
@@ -305,18 +303,6 @@ ApiReviewersGroup: "[TEAM FOUNDATION]\\Microsoft Graph API reviewers"
 
 - **kurz service**: `http://localhost:5067` (Base62 URL shortening)
 - **Authentication**: Cached tokens with secure DPAPI storage
-
-## Abandoned Approaches
-
-### PowerShell Cmdlet Approach
-
-**Why Abandoned**:
-- MSAL native authentication incompatible with PowerShell context
-- Forced device code flow (worse UX than CLI)
-- Can't use async/await properly (requires `.GetAwaiter().GetResult()`)
-- PowerShell execution context has fundamental limitations for modern auth
-
-**Lesson Learned**: Direct CLI tool with good formatting is better than PowerShell wrapper.
 
 ## Future Architecture Considerations
 

@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 using Xunit.Abstractions;
 
 namespace gapir.Tests;
@@ -31,7 +33,7 @@ public class GapirCommandLineTests
         Assert.Contains("gapir", result.Output);
         Assert.Contains("Usage:", result.Output);
         Assert.Contains("Commands:", result.Output);
-        
+
         // Should show available subcommands
         Assert.Contains("review", result.Output);
         Assert.Contains("collect", result.Output);
@@ -64,7 +66,7 @@ public class GapirCommandLineTests
         // Assert
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Usage:", result.Output);
-        
+
         // Extract subcommand name for verification
         var subcommand = command.Split(' ')[0];
         Assert.Contains(subcommand, result.Output);
@@ -114,8 +116,9 @@ public class GapirCommandLineTests
         Assert.Contains("invalid-id", result.Output);
     }
 
+    [Obsolete("use RunGapirAsync instead")]
     // Helper method to run gapir command with timeout and capture output
-    private async Task<(int ExitCode, string Output)> RunGapirAsync(string arguments)
+    private async Task<(int ExitCode, string Output)> RunGapirAsyncV1(string arguments)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -198,7 +201,7 @@ public class GapirCommandLineTests
 
         // Assert
         Assert.Equal(0, result.ExitCode);
-        
+
         // Parse JSON output
         var jsonDoc = JsonDocument.Parse(result.Output);
         var root = jsonDoc.RootElement;
@@ -308,7 +311,7 @@ public class GapirCommandLineTests
         var currentDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!;
         var repoRoot = FindRepositoryRoot(currentDir);
         var gapirProjectPath = Path.Combine(repoRoot, "src", "gapir");
-        
+
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
@@ -345,7 +348,7 @@ public class GapirCommandLineTests
         process.BeginErrorReadLine();
 
         var completed = await process.WaitForExitAsync(TimeSpan.FromMilliseconds(TimeoutMs));
-        
+
         if (!completed)
         {
             process.Kill();
@@ -354,9 +357,9 @@ public class GapirCommandLineTests
 
         var output = outputBuilder.ToString();
         var error = errorBuilder.ToString();
-        
+
         // For JSON output tests, we only want stdout since stderr contains logging
-        var outputForTesting = arguments.Contains("--format Json") ? output : 
+        var outputForTesting = arguments.Contains("--format Json") ? output :
             string.IsNullOrEmpty(error) ? output : $"{output}\nSTDERR:\n{error}";
 
         _output.WriteLine($"Command: dotnet run -- {arguments}");
@@ -376,7 +379,7 @@ public class GapirCommandLineTests
     private static string FindRepositoryRoot(string startPath)
     {
         var currentDir = new DirectoryInfo(startPath);
-        
+
         while (currentDir != null)
         {
             if (Directory.Exists(Path.Combine(currentDir.FullName, ".git")))
@@ -385,7 +388,7 @@ public class GapirCommandLineTests
             }
             currentDir = currentDir.Parent;
         }
-        
+
         throw new InvalidOperationException("Could not find repository root (.git directory)");
     }
 

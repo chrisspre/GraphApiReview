@@ -42,7 +42,7 @@ public class Base62Tests
     [Theory]
     [InlineData("")]
     [InlineData(null!)]
-    public void Decode_NullOrEmptyInput_ThrowsArgumentException(string input)
+    public void Decode_NullOrEmptyInput_ThrowsArgumentException(string? input)
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() => Base62.Decode(input));
@@ -75,7 +75,7 @@ public class Base62Tests
     [InlineData(null!, false)]
     [InlineData("123!", false)]
     [InlineData("123 abc", false)]
-    public void IsValidBase62_VariousInputs_ReturnsExpectedResult(string input, bool expected)
+    public void IsValidBase62_VariousInputs_ReturnsExpectedResult(string? input, bool expected)
     {
         // Act
         bool result = Base62.IsValidBase62(input);
@@ -93,7 +93,7 @@ public class Base62Tests
     [InlineData("123abc", false)]
     [InlineData("12.34", false)]
     [InlineData("123 456", false)]
-    public void IsDecimal_VariousInputs_ReturnsExpectedResult(string input, bool expected)
+    public void IsDecimal_VariousInputs_ReturnsExpectedResult(string? input, bool expected)
     {
         // Act
         bool result = Base62.IsDecimal(input);

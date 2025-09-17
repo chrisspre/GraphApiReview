@@ -6,12 +6,5 @@ using Microsoft.VisualStudio.Services.WebApi;
 
 public class PullRequestChecker
 {
-   
-   [Obsolete("use PullRequestDataService.GetPullRequestDataAsync")]
-    public async Task<GapirResult> GetResultsAsync(VssConnection connection)
-    {
-        // Get pull request data using the data service
-        var dataService = new PullRequestDataService();
-        return await dataService.GetPullRequestDataAsync(connection);
-    }
+    // This class can be expanded with future pull request checking functionality
 }

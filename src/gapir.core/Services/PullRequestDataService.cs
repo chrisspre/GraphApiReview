@@ -9,17 +9,6 @@ public class PullRequestDataService
     // Store API reviewers group members to avoid repeated API calls
     private  HashSet<string>? _apiReviewersMembers;
 
-
-[Obsolete("use AdoConfig.OrganizationUrl")]
-    // Azure DevOps organization URL, Project and repository details
-    public const string OrganizationUrl = "https://msazure.visualstudio.com/";
-
-[Obsolete("use AdoConfig.ProjectName")]
-    public const string ProjectName = "One";
-
-[Obsolete("use AdoConfig.RepositoryName")]
-    public const string RepositoryName = "AD-AggregatorService-Workloads";
-
     public async Task<GapirResult> GetPullRequestDataAsync(VssConnection connection)    
     {
         // var result = new GapirResult
