@@ -135,7 +135,7 @@ public class PullRequestAnalysisService
             var formattedTime = FormatTimeDifference(timeSinceCreation);
             
             // Show time since PR creation in concise format to fit in the Age column (max width 10 chars)
-            return $"≈{formattedTime} ago";
+            return $"{formattedTime} ago";
         }
         catch
         {

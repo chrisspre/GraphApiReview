@@ -7,9 +7,10 @@ namespace gapir;
 public static class Log
 {
     /// <summary>
-    /// Pre-calculated emoji prefixes to avoid repeated conditional checks during logging.
+    /// Pre-calculated log level prefixes to avoid repeated conditional checks during logging.
+    /// Supports both emoji and text-based prefixes with consistent spacing.
     /// </summary>
-    private readonly struct EmojiPrefixes
+    private readonly struct LogLevelPrefixes
     {
         public readonly string Information;
         public readonly string Warning;
@@ -17,18 +18,18 @@ public static class Log
         public readonly string Success;
         public readonly string Debug;
 
-        public EmojiPrefixes(bool useEmoji)
+        public LogLevelPrefixes(bool useEmoji)
         {
-            Information = useEmoji ? "ℹ️ " : "[INFO]";
-            Warning     = useEmoji ? "⚠️ " : "[WARN]";
-            Error       = useEmoji ? "❌ " : "[ERROR]";
-            Success     = useEmoji ? "✅ " : "[SUCCESS]";
-            Debug       = useEmoji ? "🔍 " : "[DEBUG]";
+            Information = useEmoji ? "ℹ️ " : "[INFO] ";
+            Warning     = useEmoji ? "⚠️ " : "[WARN] ";
+            Error       = useEmoji ? "❌ " : "[ERROR] ";
+            Success     = useEmoji ? "✅ " : "[SUCCESS] ";
+            Debug       = useEmoji ? "🔍 " : "[DEBUG] ";
         }
     }
 
     private static bool _isVerbose = false;
-    private static EmojiPrefixes _emojis;
+    private static LogLevelPrefixes _prefixes;
     private static bool _isInitialized = false;
 
     /// <summary>
@@ -63,7 +64,7 @@ public static class Log
         }
         
         var useEmoji = DetectEmojiSupport();
-        _emojis = new EmojiPrefixes(useEmoji);
+        _prefixes = new LogLevelPrefixes(useEmoji);
     }
 
     /// <summary>
@@ -113,7 +114,7 @@ public static class Log
             return;
         }
 
-        OutputStream.WriteLine($"{_emojis.Information}{message}");
+        OutputStream.WriteLine($"{_prefixes.Information}{message}");
     }
 
     /// <summary>
@@ -123,7 +124,7 @@ public static class Log
     public static void Warning(string message)
     {
         Console.ForegroundColor = ConsoleColor.Yellow;
-        OutputStream.WriteLine($"{_emojis.Warning}{message}");
+        OutputStream.WriteLine($"{_prefixes.Warning}{message}");
         Console.ResetColor();
     }
 
@@ -134,7 +135,7 @@ public static class Log
     public static void Error(string message)
     {
         Console.ForegroundColor = ConsoleColor.Red;
-        OutputStream.WriteLine($"{_emojis.Error}{message}");
+        OutputStream.WriteLine($"{_prefixes.Error}{message}");
         Console.ResetColor();
     }
 
@@ -150,7 +151,7 @@ public static class Log
         }
 
         Console.ForegroundColor = ConsoleColor.Green;
-        OutputStream.WriteLine($"{_emojis.Success}{message}");
+        OutputStream.WriteLine($"{_prefixes.Success}{message}");
         Console.ResetColor();
     }
 
@@ -166,7 +167,7 @@ public static class Log
         }
 
         Console.ForegroundColor = ConsoleColor.Gray;
-        OutputStream.WriteLine($"{_emojis.Debug} {message}");
+        OutputStream.WriteLine($"{_prefixes.Debug}{message}");
         Console.ResetColor();
     }
 }

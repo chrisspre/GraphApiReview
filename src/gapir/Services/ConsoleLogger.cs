@@ -7,9 +7,10 @@ namespace gapir.Services;
 public class ConsoleLogger
 {
     /// <summary>
-    /// Pre-calculated emoji prefixes to avoid repeated conditional checks during logging.
+    /// Pre-calculated log level prefixes to avoid repeated conditional checks during logging.
+    /// Supports both emoji and text-based prefixes with consistent spacing.
     /// </summary>
-    private readonly struct EmojiPrefixes
+    private readonly struct LogLevelPrefixes
     {
         public readonly string Information;
         public readonly string Warning;
@@ -17,18 +18,18 @@ public class ConsoleLogger
         public readonly string Success;
         public readonly string Debug;
 
-        public EmojiPrefixes(bool useEmoji)
+        public LogLevelPrefixes(bool useEmoji)
         {
             Information = useEmoji ? "ℹ️ " : "";
             Warning = useEmoji ? "⚠️ " : "";
-            Error = useEmoji ? "❌" : "";
-            Success = useEmoji ? "✅" : "";
-            Debug = useEmoji ? "🔍" : "[DEBUG]";
+            Error = useEmoji ? "❌ " : "";
+            Success = useEmoji ? "✅ " : "";
+            Debug = useEmoji ? "🔍 " : "[DEBUG] ";
         }
     }
 
     private bool _isVerbose;
-    private EmojiPrefixes _emojis;
+    private LogLevelPrefixes _prefixes;
     private readonly TextWriter _outputStream;
 
     /// <summary>
@@ -69,7 +70,7 @@ public class ConsoleLogger
         }
         
         var useEmoji = DetectEmojiSupport();
-        _emojis = new EmojiPrefixes(useEmoji);
+        _prefixes = new LogLevelPrefixes(useEmoji);
     }
 
     /// <summary>
@@ -87,7 +88,7 @@ public class ConsoleLogger
             return;
         }
 
-        _outputStream.WriteLine($"{_emojis.Information}{message}");
+        _outputStream.WriteLine($"{_prefixes.Information}{message}");
     }
 
     /// <summary>
@@ -96,7 +97,7 @@ public class ConsoleLogger
     public void Warning(string message)
     {
         Console.ForegroundColor = ConsoleColor.Yellow;
-        _outputStream.WriteLine($"{_emojis.Warning}{message}");
+        _outputStream.WriteLine($"{_prefixes.Warning}{message}");
         Console.ResetColor();
     }
 
@@ -106,7 +107,7 @@ public class ConsoleLogger
     public void Error(string message)
     {
         Console.ForegroundColor = ConsoleColor.Red;
-        _outputStream.WriteLine($"{_emojis.Error}{message}");
+        _outputStream.WriteLine($"{_prefixes.Error}{message}");
         Console.ResetColor();
     }
 
@@ -121,7 +122,7 @@ public class ConsoleLogger
         }
 
         Console.ForegroundColor = ConsoleColor.Green;
-        _outputStream.WriteLine($"{_emojis.Success}{message}");
+        _outputStream.WriteLine($"{_prefixes.Success}{message}");
         Console.ResetColor();
     }
 
@@ -136,7 +137,7 @@ public class ConsoleLogger
         }
 
         Console.ForegroundColor = ConsoleColor.Gray;
-        _outputStream.WriteLine($"{_emojis.Debug} {message}");
+        _outputStream.WriteLine($"{_prefixes.Debug}{message}");
         Console.ResetColor();
     }
 
