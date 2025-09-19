@@ -86,38 +86,37 @@ When using `--format Json`, gapir outputs clean structured data:
 
 **Performance Note**: The `approvedPRs` property is only populated when `--approved` is specified, avoiding expensive queries when not needed.
 
-## 🔗 kurz (URL Shortener Service)
+## 🔗 OSC 8 Terminal Hyperlinks
 
-A lightweight web service for creating short URLs used by the gapir tool for cleaner terminal output.
+The gapir tool uses modern terminal hyperlink support (OSC 8 escape sequences) to make pull request titles clickable directly in your terminal, eliminating the need for separate URL columns or external URL shortening services.
 
 **Features:**
-- 🔗 **Base62 Encoding**: Creates compact PR URLs like `http://g/pr/OwAc` (Base62) or `http://g/pr/12041652` (decimal)
-- ⚡ **Fast Redirects**: Lightweight ASP.NET Core minimal API for quick URL resolution
-- 🛠️ **Windows Service**: Easy installation with auto-start capability
-- 🌐 **Custom Domain**: Automatic hosts file management for clean URLs
+- �️ **Clickable Titles**: PR titles become clickable links that open directly in your browser
+- 🔧 **Terminal Detection**: Automatically detects terminal support for hyperlinks
+- � **Zero Configuration**: No additional services or setup required
+- 🔗 **Direct URLs**: Links point directly to Azure DevOps pull request URLs
 
-### Quick Start
-```bash
-# Run locally (requires Administrator for port 80)
-cd src/kurz
-dotnet run
+**Supported Terminals:**
+- Windows Terminal
+- Visual Studio Code integrated terminal  
+- Modern terminals that support OSC 8 escape sequences
 
-# Install as Windows service (PowerShell as Administrator)
-cd src/kurz
-.\Install-Service.ps1
+**How it Works:**
+- PR titles in terminal output are automatically rendered as clickable hyperlinks
+- If your terminal supports OSC 8, you can click/Ctrl+click titles to open PRs
+- Fallback to regular text display for terminals without hyperlink support
+- No URL columns needed - cleaner, more focused output
+
+**Example Output:**
+```text
+Title                                    | Status | Author          | Age     | Ratio
+[Fix GraphQL schema validation bug]     | ⭐     | John Doe        | 2 days  | 3/4
+[Add new API endpoint for webhooks]     | ⏳     | Jane Smith      | 1 day   | 1/3
 ```
 
-### Service Management
-```powershell
-.\Install-Service.ps1 status      # Check service status  
-.\Install-Service.ps1 uninstall   # Remove the service
-```
+> **Note:** Titles shown above would be clickable links in supported terminals
 
-**Examples:**
-- `http://g/pr/OwAc` → redirects to PR #12041652 (Base62 decoded)
-- `http://g/pr/12041652` → redirects to PR #12041652 (decimal)
-
-The service runs on `http://localhost:80` by default and automatically manages the hosts file entry for the `g` domain.
+The hyperlink implementation automatically generates proper Azure DevOps URLs and handles terminal capability detection without requiring any external dependencies.
 
 ## 🧪 Testing
 

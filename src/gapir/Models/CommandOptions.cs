@@ -9,7 +9,6 @@ public record GlobalOptions(bool Verbose, Format Format);
 /// Options specific to the review command
 /// </summary>
 public record ReviewOptions(
-    bool FullUrls, 
     bool DetailedTiming, 
     bool ShowDetailedInfo);
 
@@ -17,7 +16,6 @@ public record ReviewOptions(
 /// Options specific to the approved command
 /// </summary>
 public record ApprovedOptions(
-    bool FullUrls, 
     bool DetailedTiming, 
     bool ShowDetailedInfo);
 

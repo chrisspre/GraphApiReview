@@ -30,8 +30,7 @@ public class PullRequestAnalysisServiceTests
         _service = new PullRequestAnalysisService(
             _apiReviewersMembers, 
             _currentUserId, 
-            _currentUserDisplayName,
-            useShortUrls: false);
+            _currentUserDisplayName);
     }
 
     [Fact]

@@ -54,7 +54,6 @@ public class Program
         
         // Rendering services
         services.AddScoped<PullRequestRenderingService>();
-        services.AddScoped<UrlGeneratorService>();
         
         // Baffino services
         services.AddScoped<GraphAuthenticationService>();
@@ -86,25 +85,7 @@ public class Program
         );
         rootCommand.AddGlobalOption(formatOption);
 
-        // Create subcommands
-        AddReviewCommand(rootCommand, verboseOption, formatOption, services);
-        AddCollectCommand(rootCommand, verboseOption, formatOption, services);
-        AddDiagnoseCommand(rootCommand, verboseOption, formatOption, services);
-        AddShowApprovedCommand(rootCommand, verboseOption, formatOption, services);
-        AddBaffinoCommand(rootCommand, verboseOption, formatOption, services);
-
-        return rootCommand;
-    }
-
-    private static void AddReviewCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
-    {
-        var reviewCommand = new Command("review", "Show pull requests assigned to you for review (default command)");
-
-        // Review-specific options
-        var fullUrlsOption = new Option<bool>(
-            aliases: ["--full-urls", "-u"],
-            description: "Use full Azure DevOps URLs instead of shortened http://g/ URLs");
-
+        // Add default review options to root command
         var detailedTimingOption = new Option<bool>(
             aliases: ["--detailed-timing", "-t"],
             description: "Show detailed age column - slower due to API calls");
@@ -113,7 +94,32 @@ public class Program
             aliases: ["--show-detailed-info", "-d"],
             description: "Show detailed information section for each pending PR");
 
-        reviewCommand.AddOption(fullUrlsOption);
+        rootCommand.AddOption(detailedTimingOption);
+        rootCommand.AddOption(showDetailedInfoOption);
+
+        // Create subcommands
+        AddReviewCommand(rootCommand, verboseOption, formatOption, detailedTimingOption, showDetailedInfoOption, services);
+        AddCollectCommand(rootCommand, verboseOption, formatOption, services);
+        AddDiagnoseCommand(rootCommand, verboseOption, formatOption, services);
+        AddShowApprovedCommand(rootCommand, verboseOption, formatOption, services);
+        AddBaffinoCommand(rootCommand, verboseOption, formatOption, services);
+
+        // This is also the default command
+        rootCommand.SetHandler(async (globalOptions, reviewOptions) =>
+        {
+            var handler = services.GetRequiredService<ReviewCommandHandler>();
+            await handler.HandleAsync(reviewOptions, globalOptions);
+        },
+        new GlobalOptionsBinder(verboseOption, formatOption),
+        new ReviewOptionsBinder(detailedTimingOption, showDetailedInfoOption));
+
+        return rootCommand;
+    }
+
+    private static void AddReviewCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, Option<bool> detailedTimingOption, Option<bool> showDetailedInfoOption, IServiceProvider services)
+    {
+        var reviewCommand = new Command("review", "Show pull requests assigned to you for review (default command)");
+
         reviewCommand.AddOption(detailedTimingOption);
         reviewCommand.AddOption(showDetailedInfoOption);
 
@@ -123,18 +129,9 @@ public class Program
             await handler.HandleAsync(reviewOptions, globalOptions);
         },
         new GlobalOptionsBinder(verboseOption, formatOption),
-        new ReviewOptionsBinder(fullUrlsOption, detailedTimingOption, showDetailedInfoOption));
+        new ReviewOptionsBinder(detailedTimingOption, showDetailedInfoOption));
 
         rootCommand.AddCommand(reviewCommand);
-
-        // This is also the default command
-        rootCommand.SetHandler(async (globalOptions, reviewOptions) =>
-        {
-            var handler = services.GetRequiredService<ReviewCommandHandler>();
-            await handler.HandleAsync(reviewOptions, globalOptions);
-        },
-        new GlobalOptionsBinder(verboseOption, formatOption),
-        new ReviewOptionsBinder(fullUrlsOption, detailedTimingOption, showDetailedInfoOption));
     }
 
     private static void AddShowApprovedCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
@@ -142,10 +139,6 @@ public class Program
         var showApprovedCommand = new Command("approved", "Show table of already approved PRs");
 
         // Approved specific options
-        var fullUrlsOption = new Option<bool>(
-            aliases: ["--full-urls", "-u"],
-            description: "Use full Azure DevOps URLs instead of short g URLs");
-
         var detailedTimingOption = new Option<bool>(
             aliases: ["--detailed-timing", "-t"],
             description: "Show detailed age column - slower due to API calls");
@@ -154,7 +147,6 @@ public class Program
             aliases: ["--show-detailed-info", "-d"],
             description: "Show detailed information section for each pending PR");
 
-        showApprovedCommand.AddOption(fullUrlsOption);
         showApprovedCommand.AddOption(detailedTimingOption);
         showApprovedCommand.AddOption(showDetailedInfoOption);
 
@@ -164,7 +156,7 @@ public class Program
             await handler.HandleAsync(approvedOptions, globalOptions);
         },
         new GlobalOptionsBinder(verboseOption, formatOption),
-        new ApprovedOptionsBinder(fullUrlsOption, detailedTimingOption, showDetailedInfoOption));
+        new ApprovedOptionsBinder(detailedTimingOption, showDetailedInfoOption));
 
         rootCommand.AddCommand(showApprovedCommand);
     }

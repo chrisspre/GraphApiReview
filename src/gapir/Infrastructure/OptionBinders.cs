@@ -32,16 +32,13 @@ public class GlobalOptionsBinder : BinderBase<GlobalOptions>
 /// </summary>
 public class ReviewOptionsBinder : BinderBase<ReviewOptions>
 {
-    private readonly Option<bool> _fullUrlsOption;
     private readonly Option<bool> _detailedTimingOption;
     private readonly Option<bool> _showDetailedInfoOption;
 
     public ReviewOptionsBinder(
-        Option<bool> fullUrlsOption,
         Option<bool> detailedTimingOption,
         Option<bool> showDetailedInfoOption)
     {
-        _fullUrlsOption = fullUrlsOption;
         _detailedTimingOption = detailedTimingOption;
         _showDetailedInfoOption = showDetailedInfoOption;
     }
@@ -49,7 +46,6 @@ public class ReviewOptionsBinder : BinderBase<ReviewOptions>
     protected override ReviewOptions GetBoundValue(BindingContext bindingContext)
     {
         return new ReviewOptions(
-            bindingContext.ParseResult.GetValueForOption(_fullUrlsOption),
             bindingContext.ParseResult.GetValueForOption(_detailedTimingOption),
             bindingContext.ParseResult.GetValueForOption(_showDetailedInfoOption)
         );
@@ -61,16 +57,13 @@ public class ReviewOptionsBinder : BinderBase<ReviewOptions>
 /// </summary>
 public class ApprovedOptionsBinder : BinderBase<ApprovedOptions>
 {
-    private readonly Option<bool> _fullUrlsOption;
     private readonly Option<bool> _detailedTimingOption;
     private readonly Option<bool> _showDetailedInfoOption;
 
     public ApprovedOptionsBinder(
-        Option<bool> fullUrlsOption,
         Option<bool> detailedTimingOption,
         Option<bool> showDetailedInfoOption)
     {
-        _fullUrlsOption = fullUrlsOption;
         _detailedTimingOption = detailedTimingOption;
         _showDetailedInfoOption = showDetailedInfoOption;
     }
@@ -78,7 +71,6 @@ public class ApprovedOptionsBinder : BinderBase<ApprovedOptions>
     protected override ApprovedOptions GetBoundValue(BindingContext bindingContext)
     {
         return new ApprovedOptions(
-            bindingContext.ParseResult.GetValueForOption(_fullUrlsOption),
             bindingContext.ParseResult.GetValueForOption(_detailedTimingOption),
             bindingContext.ParseResult.GetValueForOption(_showDetailedInfoOption)
         );

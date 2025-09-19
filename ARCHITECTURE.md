@@ -7,7 +7,6 @@ This document provides comprehensive technical details about the architecture, d
 ### Project Structure
 
 - **`src/gapir/`** - Main CLI tool (Graph API Review)
-- **`src/kurz/`** - URL shortener service  
 - **`src/mcp/`** - Model Context Protocol server
 - **`tests/gapir.Tests/`** - Unit tests
 
@@ -182,20 +181,31 @@ Priority-based logic for determining completion blockers:
 4. **POA** (Pending Other Approvals) - Non-API reviewers pending
 5. **POL** (Policy/Build Issues) - Approvals satisfied but other blocks
 
-## URL Strategy Architecture
+## Terminal Output Architecture
 
-### kurz Service Integration
+### OSC 8 Hyperlinks Implementation
 
-**Default Behavior**: Short URLs for terminal readability
+**Modern Terminal Integration**: Clickable PR titles using OSC 8 escape sequences
 
-- **Encoding**: Base62 for compact URLs: `http://g/pr/{encoded_id}`
-- **Fallback**: Full URLs when kurz service unavailable
-- **Configuration**: `--full-urls` flag for explicit full URL preference
+- **Escape Sequence**: `\u001b]8;;{url}\u001b\\{text}\u001b]8;;\u001b\\`
+- **Auto-Detection**: Terminal capability detection for graceful fallback
+- **Direct URLs**: Full Azure DevOps pull request URLs without shortening
+- **Zero Dependencies**: No external services or configuration required
+
+**TerminalLinkService Architecture**:
+```csharp
+public static class TerminalLinkService
+{
+    public static string CreateLink(string url, string text)
+    public static string CreatePullRequestLink(int pullRequestId, string title)
+    public static bool SupportsOsc8()
+}
+```
 
 **Integration Pattern**:
-- Loose coupling with kurz service
-- Graceful degradation when services unavailable
-- Clear separation between PR logic and URL formatting
+- Clean separation between PR data and terminal rendering
+- Automatic fallback to plain text for unsupported terminals
+- Consistent URL generation using Azure DevOps configuration
 
 ## Error Handling Philosophy
 
@@ -301,8 +311,8 @@ ApiReviewersGroup: "[TEAM FOUNDATION]\\Microsoft Graph API reviewers"
 
 ### Service Integration
 
-- **kurz service**: `http://localhost:5067` (Base62 URL shortening)
 - **Authentication**: Cached tokens with secure DPAPI storage
+- **Terminal Output**: OSC 8 hyperlinks for supported terminals
 
 ## Future Architecture Considerations
 

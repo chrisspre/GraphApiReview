@@ -45,7 +45,6 @@ public class ReviewCommandHandler
             
             var renderingOptions = new PullRequestRenderingOptions
             {
-                UseShortUrls = !options.FullUrls,
                 ShowDetailedTiming = options.DetailedTiming,
                 ShowDetailedInfo = options.ShowDetailedInfo,
                 Format = globalOptions.Format

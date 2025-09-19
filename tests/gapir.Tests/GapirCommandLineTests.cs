@@ -116,85 +116,11 @@ public class GapirCommandLineTests
         Assert.Contains("invalid-id", result.Output);
     }
 
-    [Obsolete("use RunGapirAsync instead")]
-    // Helper method to run gapir command with timeout and capture output
-    private async Task<(int ExitCode, string Output)> RunGapirAsyncV1(string arguments)
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "dotnet",
-            Arguments = $"run --project src/gapir -- {arguments}",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = GetWorkspaceRoot()
-        };
-
-        using var process = new Process { StartInfo = startInfo };
-        var outputBuilder = new StringBuilder();
-        var errorBuilder = new StringBuilder();
-
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-            {
-                outputBuilder.AppendLine(e.Data);
-            }
-        };
-
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-            {
-                errorBuilder.AppendLine(e.Data);
-            }
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        // Wait for completion with timeout
-        var completed = await Task.Run(() => process.WaitForExit(TimeoutMs));
-
-        if (!completed)
-        {
-            process.Kill();
-            throw new TimeoutException($"Command 'dotnet run -- {arguments}' timed out after {TimeoutMs}ms");
-        }
-
-        var output = outputBuilder.ToString();
-        var error = errorBuilder.ToString();
-        var combinedOutput = string.IsNullOrEmpty(error) ? output : $"{output}\n{error}";
-
-        _output.WriteLine($"Command: dotnet run -- {arguments}");
-        _output.WriteLine($"Exit Code: {process.ExitCode}");
-        _output.WriteLine($"Output:\n{combinedOutput}");
-
-        return (process.ExitCode, combinedOutput);
-    }
-
-    private static string GetWorkspaceRoot()
-    {
-        var currentDirectory = Directory.GetCurrentDirectory();
-        var directory = new DirectoryInfo(currentDirectory);
-
-        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "ApiReview.sln")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName ?? throw new InvalidOperationException("Could not find workspace root containing ApiReview.sln");
-    }
-
     [Theory]
-    [InlineData("approved", true, false)] // Show approved PRs
-    [InlineData("approved --full-urls", true, true)] // Show approved + full URLs
-    [InlineData("approved --verbose", true, false)] // Show approved + verbose
-    [InlineData("review --verbose --full-urls", false, true)] // Review with verbose + full URLs
-    [InlineData("approved --verbose --full-urls", true, true)] // Approved with all flags
-    public async Task Subcommand_Combinations_ProduceExpectedBehavior(string subcommand, bool expectApproved, bool expectFullUrls)
+    [InlineData("approved", true)] // Show approved PRs
+    [InlineData("approved --verbose", true)] // Show approved + verbose
+    [InlineData("review --verbose", false)] // Review with verbose
+    public async Task Subcommand_Combinations_ProduceExpectedBehavior(string subcommand, bool expectApproved)
     {
         // Arrange & Act - Use JSON output for consistent testing
         var result = await RunGapirAsync($"{subcommand} --format Json".Trim());
@@ -223,23 +149,18 @@ public class GapirCommandLineTests
         Assert.Equal(JsonValueKind.Array, pendingProp.ValueKind);
         Assert.Equal(JsonValueKind.Array, approvedProp.ValueKind);
 
-        // If we have PR data, verify URL format based on flag
+        // If we have PR data, verify the data structure
         if (pendingProp.GetArrayLength() > 0)
         {
             var firstPr = pendingProp[0];
-            Assert.True(firstPr.TryGetProperty("shortUrl", out var shortUrlProp));
-            Assert.True(firstPr.TryGetProperty("fullUrl", out var fullUrlProp));
-
-            if (expectFullUrls)
-            {
-                // URLs in the data should be full URLs when flag is set
-                Assert.Contains("https://msazure.visualstudio.com", fullUrlProp.GetString()!);
-            }
-            else
-            {
-                // URLs in the data should include short URLs when flag is not set
-                Assert.Contains("http://g/pr/", shortUrlProp.GetString()!);
-            }
+            // Basic PR properties should be present
+            Assert.True(firstPr.TryGetProperty("title", out var prTitleProp));
+            Assert.True(firstPr.TryGetProperty("pullRequestId", out var idProp));
+            Assert.True(firstPr.TryGetProperty("myVoteStatus", out var statusProp));
+            
+            // Verify we have meaningful data
+            Assert.False(string.IsNullOrEmpty(prTitleProp.GetString()));
+            Assert.True(idProp.GetInt32() > 0);
         }
 
         // Verify approved PR data is present if requested

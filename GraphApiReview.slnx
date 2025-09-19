@@ -3,7 +3,6 @@
     <Project Path="src/gapir.core/gapir.core.csproj" />
     <Project Path="src/gapir/gapir.csproj" />
     <Project Path="src/groupcheck/groupcheck.csproj" />
-    <Project Path="src/kurz/kurz.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/gapir.Tests/gapir.Tests.csproj" />

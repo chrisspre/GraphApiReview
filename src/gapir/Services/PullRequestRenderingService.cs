@@ -6,11 +6,8 @@ using System.Text.RegularExpressions;
 
 public partial class PullRequestRenderingService
 {
-    private readonly UrlGeneratorService _urlGenerator;
-
-    public PullRequestRenderingService(UrlGeneratorService urlGenerator)
+    public PullRequestRenderingService()
     {
-        _urlGenerator = urlGenerator;
     }
 
     /// <summary>
@@ -144,18 +141,18 @@ public partial class PullRequestRenderingService
 
     private void RenderApprovedPRsTable(List<PullRequestInfo> approvedPRs, PullRequestRenderingOptions options)
     {
-        DisplayApprovedPullRequestsTable(approvedPRs, id => _urlGenerator.GenerateUrl(id, options.UseShortUrls), options.ShowDetailedTiming);
+        DisplayApprovedPullRequestsTable(approvedPRs, options.ShowDetailedTiming);
     }
 
     private void RenderPendingPRsTable(List<PullRequestInfo> pendingPRs, PullRequestRenderingOptions options)
     {
-        DisplayPullRequestsTable(pendingPRs, id => _urlGenerator.GenerateUrl(id, options.UseShortUrls));
+        DisplayPullRequestsTable(pendingPRs);
     }
 
     /// <summary>
-    /// Displays approved PRs in a simpler format
+    /// Displays approved PRs in a simpler format with clickable titles
     /// </summary>
-    private void DisplayApprovedPullRequestsTable(List<PullRequestInfo> pullRequestInfos, Func<int, string> urlGenerator, bool showDetailedTiming)
+    private void DisplayApprovedPullRequestsTable(List<PullRequestInfo> pullRequestInfos, bool showDetailedTiming)
     {
         if (!pullRequestInfos.Any())
         {
@@ -166,35 +163,35 @@ public partial class PullRequestRenderingService
         Console.WriteLine("    Reject=Rejected, Wait4A=Waiting For Author, Policy=Policy/Build Issues");
         Console.WriteLine("    PendRv=Pending Reviewer Approval, PendOt=Pending Other Approvals");
 
-        // Prepare table data - adjust headers based on detailed timing flag
+        // Prepare table data - adjust headers based on detailed timing flag (no URL column)
         string[] headers;
         int[] maxWidths;
 
         if (showDetailedTiming)
         {
-            headers = new[] { "Author", "Title", "Why", "Reviewers", "URL" };
-            maxWidths = new[] { 20, 30, 8, 25, -1 }; // Increased Why column from 3 to 8 to show full reason codes
+            headers = new[] { "Author", "Title", "Why", "Reviewers" };
+            maxWidths = new[] { 20, 65, 8, 25 }; // Increased title column for 120 char table width
         }
         else
         {
-            headers = new[] { "Author", "Title", "Why", "URL" };
-            maxWidths = new[] { 25, 40, 8, -1 };
+            headers = new[] { "Author", "Title", "Why" };
+            maxWidths = new[] { 25, 75, 8 }; // Increased title column for 120 char table width
         }
 
         var rows = new List<string[]>();
         foreach (var info in pullRequestInfos)
         {
             var pr = info.PullRequest;
-            var url = urlGenerator(info.PullRequestId);
             var reason = info.PendingReason;
+            var clickableTitle = TerminalLinkService.CreatePullRequestLink(info.PullRequestId, ShortenTitle(pr.Title));
 
             if (showDetailedTiming)
             {
-                rows.Add(new string[] { pr.CreatedBy.DisplayName, ShortenTitle(pr.Title), reason, info.TimeAssigned, url });
+                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, reason, info.TimeAssigned });
             }
             else
             {
-                rows.Add(new string[] { pr.CreatedBy.DisplayName, ShortenTitle(pr.Title), reason, url });
+                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, reason });
             }
         }
 
@@ -202,9 +199,9 @@ public partial class PullRequestRenderingService
     }
 
     /// <summary>
-    /// Displays a formatted table of pull requests
+    /// Displays a formatted table of pull requests with clickable titles
     /// </summary>
-    private void DisplayPullRequestsTable(List<PullRequestInfo> pullRequestInfos, Func<int, string> urlGenerator)
+    private void DisplayPullRequestsTable(List<PullRequestInfo> pullRequestInfos)
     {
         if (!pullRequestInfos.Any())
         {
@@ -212,26 +209,24 @@ public partial class PullRequestRenderingService
             return;
         }
 
-        // Prepare table data for pending PRs using original format
-        var headers = new[] { "Title", "Status", "Author", "Age", "Ratio", "Change", "URL" };
-        var maxWidths = new[] { 30, 6, 18, 10, 6, 20, -1 }; // -1 means no limit for URLs
+        // Prepare table data for pending PRs (no URL column)
+        var headers = new[] { "Title", "Status", "Author", "Age", "Ratio", "Change" };
+        var maxWidths = new[] { 55, 6, 18, 10, 6, 20 }; // Increased title column for 120 char table width
 
         var rows = new List<string[]>();
         foreach (var info in pullRequestInfos)
         {
             var pr = info.PullRequest;
-            var cleanedTitle = ShortenTitle(pr.Title);
-            var url = urlGenerator(info.PullRequestId);
+            var clickableTitle = TerminalLinkService.CreatePullRequestLink(info.PullRequestId, ShortenTitle(pr.Title));
 
             rows.Add(new string[]
             {
-                cleanedTitle,
+                clickableTitle,
                 info.MyVoteStatus,
                 pr.CreatedBy.DisplayName,
                 info.TimeAssigned,
                 info.ApiApprovalRatio,
-                info.LastChangeInfo,
-                url
+                info.LastChangeInfo
             });
         }
 
@@ -249,13 +244,14 @@ public partial class PullRequestRenderingService
         // Calculate actual column widths based on content
         var actualWidths = new int[headers.Length];
 
-        // Start with header lengths
+        // Start with header lengths (using visual width)
         for (int i = 0; i < headers.Length; i++)
         {
-            actualWidths[i] = maxWidths[i] == -1 ? headers[i].Length : Math.Min(headers[i].Length, maxWidths[i]);
+            var headerWidth = GetVisualWidth(headers[i]);
+            actualWidths[i] = maxWidths[i] == -1 ? headerWidth : Math.Min(headerWidth, maxWidths[i]);
         }
 
-        // Check content lengths
+        // Check content lengths (using visual width)
         foreach (var row in rows)
         {
             if (row.Length != headers.Length)
@@ -263,7 +259,7 @@ public partial class PullRequestRenderingService
 
             for (int i = 0; i < row.Length && i < actualWidths.Length; i++)
             {
-                var contentLength = row[i]?.Length ?? 0;
+                var contentLength = GetVisualWidth(row[i] ?? "");
                 if (maxWidths[i] == -1)
                 {
                     // No limit for this column
@@ -280,8 +276,8 @@ public partial class PullRequestRenderingService
         Console.WriteLine();
         for (int i = 0; i < headers.Length; i++)
         {
-            var header = maxWidths[i] == -1 ? headers[i] : TruncateString(headers[i], actualWidths[i]);
-            Console.Write($"{header.PadRight(actualWidths[i])}");
+            var header = maxWidths[i] == -1 ? headers[i] : TruncateStringByVisualWidth(headers[i], actualWidths[i]);
+            Console.Write(PadToVisualWidth(header, actualWidths[i]));
             if (i < headers.Length - 1)
                 Console.Write(" | ");
         }
@@ -304,13 +300,16 @@ public partial class PullRequestRenderingService
 
             for (int i = 0; i < row.Length; i++)
             {
-                var content = maxWidths[i] == -1 ? (row[i] ?? "") : TruncateString(row[i] ?? "", actualWidths[i]);
-                Console.Write($"{content.PadRight(actualWidths[i])}");
+                var content = maxWidths[i] == -1 ? (row[i] ?? "") : TruncateStringByVisualWidth(row[i] ?? "", actualWidths[i]);
+                Console.Write(PadToVisualWidth(content, actualWidths[i]));
                 if (i < row.Length - 1)
                     Console.Write(" | ");
             }
             Console.WriteLine();
         }
+        
+        // Add empty line after table
+        Console.WriteLine();
     }
 
     private static string ShortenTitle(string title)
@@ -340,15 +339,37 @@ public partial class PullRequestRenderingService
         return cleaned;
     }
 
-    private static string TruncateString(string input, int maxLength)
+    /// <summary>
+    /// Truncates a string based on visual width, preserving escape sequences
+    /// </summary>
+    private static string TruncateStringByVisualWidth(string input, int maxVisualWidth)
     {
         if (string.IsNullOrEmpty(input))
             return string.Empty;
 
-        if (input.Length <= maxLength)
+        var visualWidth = GetVisualWidth(input);
+        if (visualWidth <= maxVisualWidth)
             return input;
 
-        return input.Substring(0, maxLength - 3) + "...";
+        // For strings with escape sequences, we need to be more careful about truncation
+        // For now, if it contains escape sequences and is too long, truncate by removing characters from the end
+        if (AnsiEscapeRegex().IsMatch(input))
+        {
+            // This is a simplified approach - in a real implementation you might want to
+            // preserve escape sequences and only truncate the visible text
+            var cleanText = AnsiEscapeRegex().Replace(input, "");
+            if (cleanText.Length > maxVisualWidth - 3)
+            {
+                var truncatedClean = cleanText.Substring(0, maxVisualWidth - 3) + "...";
+                // For hyperlinks, we'll just return the truncated clean text 
+                // since preserving partial escape sequences could break the link
+                return truncatedClean;
+            }
+            return input;
+        }
+
+        // No escape sequences, use regular truncation
+        return input.Substring(0, maxVisualWidth - 3) + "...";
     }
 
     [GeneratedRegex(@"^\s*\[[^\]]+\]\s*")]
@@ -359,4 +380,36 @@ public partial class PullRequestRenderingService
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex SimplifySpacesRegex();
+
+    [GeneratedRegex(@"\u001b\[[0-9;]*[a-zA-Z]|\u001b\]8;;[^\u0007\u001b]*\u001b\\|\u001b\]8;;\u001b\\")]
+    private static partial Regex AnsiEscapeRegex();
+
+    /// <summary>
+    /// Calculates the visual width of a string, excluding ANSI escape sequences and OSC 8 hyperlinks
+    /// </summary>
+    private static int GetVisualWidth(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return 0;
+
+        // Remove ANSI escape sequences and OSC 8 hyperlinks to get actual display width
+        var cleanText = AnsiEscapeRegex().Replace(text, "");
+        return cleanText.Length;
+    }
+
+    /// <summary>
+    /// Pads a string to the specified visual width, accounting for escape sequences
+    /// </summary>
+    private static string PadToVisualWidth(string text, int targetWidth)
+    {
+        if (string.IsNullOrEmpty(text))
+            return new string(' ', targetWidth);
+
+        var visualWidth = GetVisualWidth(text);
+        if (visualWidth >= targetWidth)
+            return text;
+
+        // Add padding to reach target visual width
+        return text + new string(' ', targetWidth - visualWidth);
+    }
 }
