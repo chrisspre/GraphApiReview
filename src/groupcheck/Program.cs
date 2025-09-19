@@ -14,86 +14,77 @@ class Program
     static async Task<int> Main(string[] args)
     {
         // Create the root command
-        var rootCommand = new RootCommand("GroupCheck - Check Azure AD group membership")
-        {
-            Name = "groupcheck"
-        };
+        var rootCommand = new RootCommand("GroupCheck - Check Azure AD group membership");
 
         // Add expand command for recursive group membership
         var expandCommand = new Command("expand", "Recursively expand group membership to find all user members");
-        var groupExpandOption = new Option<string>(
-            name: "--group",
-            description: "Group name or ID to expand recursively")
+        var groupExpandOption = new Option<string>("--group", "-g")
         {
-            IsRequired = true
+            Description = "Group name or ID to expand recursively"
         };
-        groupExpandOption.AddAlias("-g");
 
-        var outputFormatOption = new Option<string>(
-            name: "--format",
-            description: "Output format: table (default), json, csv")
+        var outputFormatOption = new Option<string>("--format", "-f")
         {
-            IsRequired = false
+            Description = "Output format: table (default), json, csv",
+            DefaultValueFactory = _ => "table"
         };
-        outputFormatOption.SetDefaultValue("table");
-        outputFormatOption.AddAlias("-f");
 
-        expandCommand.AddOption(groupExpandOption);
-        expandCommand.AddOption(outputFormatOption);
+        expandCommand.Options.Add(groupExpandOption);
+        expandCommand.Options.Add(outputFormatOption);
 
-        expandCommand.SetHandler(async (group, format) =>
+        expandCommand.SetAction(async (parseResult, cancellationToken) =>
         {
-            await HandleExpandCommand(group, format);
-        }, groupExpandOption, outputFormatOption);
+            var group = parseResult.GetValue(groupExpandOption);
+            var format = parseResult.GetValue(outputFormatOption);
+            await HandleExpandCommand(group!, format!);
+            return 0;
+        });
 
         // Add check command
         var checkCommand = new Command("check", "Check if a user is a member of specified groups");
-        var userOption = new Option<string>(
-            name: "--user",
-            description: "User email or UPN to check")
+        var userOption = new Option<string>("--user", "-u")
         {
-            IsRequired = true
+            Description = "User email or UPN to check"
         };
-        userOption.AddAlias("-u");
 
-        var groupOption = new Option<string[]>(
-            name: "--groups", 
-            description: "Group names or IDs to check membership against")
+        var groupOption = new Option<string[]>("--groups", "-g")
         {
-            IsRequired = true,
+            Description = "Group names or IDs to check membership against",
             AllowMultipleArgumentsPerToken = true
         };
-        groupOption.AddAlias("-g");
 
-        checkCommand.AddOption(userOption);
-        checkCommand.AddOption(groupOption);
+        checkCommand.Options.Add(userOption);
+        checkCommand.Options.Add(groupOption);
 
-        checkCommand.SetHandler(async (user, groups) =>
+        checkCommand.SetAction(async (parseResult, cancellationToken) =>
         {
-            await HandleCheckCommand(user, groups);
-        }, userOption, groupOption);
+            var user = parseResult.GetValue(userOption);
+            var groups = parseResult.GetValue(groupOption);
+            await HandleCheckCommand(user!, groups!);
+            return 0;
+        });
 
         // Add list command for user's groups
         var listCommand = new Command("list", "List all groups for a user");
-        var listUserOption = new Option<string>(
-            name: "--user",
-            description: "User email or UPN to list groups for")
+        var listUserOption = new Option<string>("--user", "-u")
         {
-            IsRequired = true
+            Description = "User email or UPN to list groups for"
         };
-        listUserOption.AddAlias("-u");
 
-        listCommand.AddOption(listUserOption);
-        listCommand.SetHandler(async (user) =>
+        listCommand.Options.Add(listUserOption);
+        listCommand.SetAction(async (parseResult, cancellationToken) =>
         {
-            await HandleListCommand(user);
-        }, listUserOption);
+            var user = parseResult.GetValue(listUserOption);
+            await HandleListCommand(user!);
+            return 0;
+        });
 
-        rootCommand.AddCommand(expandCommand);
-        rootCommand.AddCommand(checkCommand);
-        rootCommand.AddCommand(listCommand);
+        rootCommand.Subcommands.Add(expandCommand);
+        rootCommand.Subcommands.Add(checkCommand);
+        rootCommand.Subcommands.Add(listCommand);
 
-        return await rootCommand.InvokeAsync(args);
+        var parseResult = rootCommand.Parse(args);
+        return await parseResult.InvokeAsync();
     }
 
     private static async Task HandleExpandCommand(string group, string format)

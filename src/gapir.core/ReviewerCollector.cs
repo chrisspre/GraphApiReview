@@ -139,10 +139,10 @@ public class ReviewerCollector
                 Console.WriteLine($"  {reviewer} - Required in {count} PRs");
             }
 
-            // Generate C# code
+            // Generate JSON configuration
             Console.WriteLine();
-            Console.WriteLine("[INFO] Generating C# fallback code...");
-            GenerateCSharpCode(sortedReviewers);
+            Console.WriteLine("[INFO] Generating JSON configuration...");
+            await GenerateJsonConfigurationAsync(sortedReviewers);
 
             Console.WriteLine("[OK] Analysis complete!");
         }
@@ -206,56 +206,61 @@ public class ReviewerCollector
         return input.Length <= maxLength ? input : input.Substring(0, maxLength - 3) + "...";
     }
 
-    private static void GenerateCSharpCode(List<KeyValuePair<string, (int count, string displayName)>> sortedReviewers)
+    private static async Task GenerateJsonConfigurationAsync(List<KeyValuePair<string, (int count, string displayName)>> sortedReviewers)
     {
-        var sb = new StringBuilder();
-
-        sb.AppendLine("// Generated C# code for ApiReviewersFallback.cs");
-        sb.AppendLine($"// Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-        sb.AppendLine($"// Based on analysis of recent API review pull requests (PRs with 'Microsoft Graph API reviewers' group assigned)");
-        sb.AppendLine();
-        sb.AppendLine("public static readonly HashSet<string> KnownApiReviewers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)");
-        sb.AppendLine("{");
-
         // Filter to only individual email accounts
         var individualReviewers = sortedReviewers
             .Where(kvp => kvp.Key.Contains("@microsoft.com"))
             .Take(25) // Top 25 individual reviewers
             .ToList();
 
+        var reviewers = new List<Models.ApiReviewer>();
+        
         if (individualReviewers.Any())
         {
-            sb.AppendLine("    // Individual reviewers (email addresses only - no groups or service accounts)");
-            foreach (var (reviewer, (count, displayName)) in individualReviewers)
+            foreach (var (email, (count, displayName)) in individualReviewers)
             {
-                // Add display name if it's different from email and meaningful
-                var nameComment = "";
-                if (!string.IsNullOrEmpty(displayName) &&
-                    displayName != reviewer &&
-                    !displayName.Equals(reviewer, StringComparison.OrdinalIgnoreCase) &&
-                    !displayName.Contains('@'))
+                reviewers.Add(new Models.ApiReviewer
                 {
-                    nameComment = $"{displayName} ({count})";
-                }
-                sb.AppendLine($"    \"{reviewer}\", // {nameComment}");
+                    Email = email,
+                    DisplayName = !string.IsNullOrEmpty(displayName) && 
+                                 displayName != email && 
+                                 !displayName.Equals(email, StringComparison.OrdinalIgnoreCase) && 
+                                 !displayName.Contains('@') 
+                                 ? displayName 
+                                 : "",
+                    PullRequestCount = count,
+                    LastSeen = DateTime.UtcNow
+                });
             }
         }
-        else
-        {
-            sb.AppendLine("    // No individual reviewers found");
-        }
 
-        sb.AppendLine("};");
+        var config = new Models.ReviewersConfiguration
+        {
+            LastUpdated = DateTime.UtcNow,
+            Source = "Generated from recent API review pull requests analysis",
+            Reviewers = reviewers
+        };
+
+        var configService = new ReviewersConfigurationService();
+        await configService.SaveConfigurationAsync(config);
 
         Console.WriteLine();
-        Console.WriteLine("Copy the following code to update ApiReviewersFallback.cs:");
-        Console.WriteLine(new string('-', 70));
-        Console.WriteLine(sb.ToString());
-        Console.WriteLine(new string('-', 70));
-
-        // Also save to a file for convenience
-        var outputPath = Path.Combine(Directory.GetCurrentDirectory(), "generated-reviewers.cs");
-        File.WriteAllText(outputPath, sb.ToString());
-        Console.WriteLine($"[INFO] Code also saved to: {outputPath}");
+        Console.WriteLine("[INFO] JSON configuration saved successfully!");
+        Console.WriteLine($"[INFO] Configuration contains {reviewers.Count} reviewers");
+        Console.WriteLine($"[INFO] Saved to: {configService.GetConfigurationFilePath()}");
+        
+        // Display the reviewers for confirmation
+        Console.WriteLine();
+        Console.WriteLine("Generated configuration contains:");
+        foreach (var reviewer in reviewers.Take(10))
+        {
+            var nameInfo = !string.IsNullOrEmpty(reviewer.DisplayName) ? $" ({reviewer.DisplayName})" : "";
+            Console.WriteLine($"  - {reviewer.Email}{nameInfo} - {reviewer.PullRequestCount} reviews");
+        }
+        if (reviewers.Count > 10)
+        {
+            Console.WriteLine($"  ... and {reviewers.Count - 10} more reviewers");
+        }
     }
 }

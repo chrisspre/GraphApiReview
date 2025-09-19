@@ -4,7 +4,7 @@ using gapir.Services;
 namespace gapir.Handlers;
 
 /// <summary>
-/// Command handler for Teams preferences management
+/// Command handler for Reviewer Assignment Preferences management
 /// </summary>
 public class PreferencesCommandHandler
 {
@@ -24,22 +24,22 @@ public class PreferencesCommandHandler
         {
             if (verbose)
             {
-                Log.Information("🔍 Retrieving Teams preferences...");
+                Log.Information("🔍 Retrieving Reviewer Assignment Preferences...");
             }
             
             var preferences = await _preferencesService.GetPreferencesAsync();
             
             if (preferences == null)
             {
-                Console.WriteLine("❌ No Teams preferences found for the current user.");
-                Console.WriteLine("   You may need to set up Teams preferences first using the 'preferences set' command.");
+                Console.WriteLine("❌ No Reviewer Assignment preferences found for the current user.");
+                Console.WriteLine("   You may need to set up Reviewer Assignment preferences first using the 'preferences set' command.");
                 return 1;
             }
 
             if (!verbose)
             {
                 Console.WriteLine();
-                Console.WriteLine("✅ Current Teams Preferences:");
+                Console.WriteLine("✅ Current Reviewer Assignment Preferences:");
                 Console.WriteLine();
             }
 

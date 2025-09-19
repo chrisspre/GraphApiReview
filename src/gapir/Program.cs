@@ -3,7 +3,6 @@ using System.Diagnostics;
 using gapir.Services;
 using gapir.Handlers;
 using gapir.Models;
-using gapir.Infrastructure;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -16,7 +15,8 @@ public class Program
     {
         var host = CreateHost();
         var rootCommand = CreateRootCommand(host.Services);
-        return await rootCommand.InvokeAsync(args);
+        var parseResult = rootCommand.Parse(args);
+        return await parseResult.InvokeAsync();
     }
 
     /// <summary>
@@ -37,6 +37,9 @@ public class Program
         // Core services from gapir.core
         // Register services
         services.AddSingleton<ConnectionService>();
+        services.AddSingleton<ReviewersConfigurationService>();
+        services.AddSingleton<ApiReviewersGroupService>();
+        services.AddScoped<PullRequestDataService>();
         services.AddScoped<ConsoleLogger>();
         services.AddScoped<PullRequestDataLoader>();
         services.AddScoped<PullRequestAnalyzer>();
@@ -55,7 +58,7 @@ public class Program
         // Rendering services
         services.AddScoped<PullRequestRenderingService>();
         
-        // Teams preferences services
+        // Reviewer Assignment preferences services
         services.AddScoped<GraphAuthenticationService>();
         services.AddScoped<PreferencesService>();
     }
@@ -73,29 +76,32 @@ public class Program
         };
 
         // Define global options and add them to the root command
-        var verboseOption = new Option<bool>(
-            aliases: ["--verbose", "-v"],
-            description: "Show diagnostic messages during execution");
-        rootCommand.AddGlobalOption(verboseOption);
+        var verboseOption = new Option<bool>("--verbose", "-v")
+        {
+            Description = "Show diagnostic messages during execution"
+        };
+        rootCommand.Options.Add(verboseOption);
 
-        var formatOption = new Option<Format>(
-            aliases: ["--format", "-f"],
-            getDefaultValue: () => Format.Text,
-            description: "Output format: text or json"
-        );
-        rootCommand.AddGlobalOption(formatOption);
+        var formatOption = new Option<Format>("--format", "-f")
+        {
+            Description = "Output format: text or json",
+            DefaultValueFactory = _ => Format.Text
+        };
+        rootCommand.Options.Add(formatOption);
 
         // Add default review options to root command
-        var detailedTimingOption = new Option<bool>(
-            aliases: ["--detailed-timing", "-t"],
-            description: "Show detailed age column - slower due to API calls");
+        var detailedTimingOption = new Option<bool>("--detailed-timing", "-t")
+        {
+            Description = "Show detailed age column - slower due to API calls"
+        };
 
-        var showDetailedInfoOption = new Option<bool>(
-            aliases: ["--show-detailed-info", "-d"],
-            description: "Show detailed information section for each pending PR");
+        var showDetailedInfoOption = new Option<bool>("--show-detailed-info", "-d")
+        {
+            Description = "Show detailed information section for each pending PR"
+        };
 
-        rootCommand.AddOption(detailedTimingOption);
-        rootCommand.AddOption(showDetailedInfoOption);
+        rootCommand.Options.Add(detailedTimingOption);
+        rootCommand.Options.Add(showDetailedInfoOption);
 
         // Create subcommands
         AddReviewCommand(rootCommand, verboseOption, formatOption, detailedTimingOption, showDetailedInfoOption, services);
@@ -105,13 +111,18 @@ public class Program
         AddPreferencesCommand(rootCommand, verboseOption, formatOption, services);
 
         // This is also the default command
-        rootCommand.SetHandler(async (globalOptions, reviewOptions) =>
+        rootCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var handler = services.GetRequiredService<ReviewCommandHandler>();
+            var verbose = parseResult.GetValue(verboseOption);
+            var format = parseResult.GetValue(formatOption);
+            var detailedTiming = parseResult.GetValue(detailedTimingOption);
+            var showDetailedInfo = parseResult.GetValue(showDetailedInfoOption);
+            var globalOptions = new GlobalOptions(verbose, format);
+            var reviewOptions = new ReviewOptions(detailedTiming, showDetailedInfo);
             await handler.HandleAsync(reviewOptions, globalOptions);
-        },
-        new GlobalOptionsBinder(verboseOption, formatOption),
-        new ReviewOptionsBinder(detailedTimingOption, showDetailedInfoOption));
+            return 0;
+        });
 
         return rootCommand;
     }
@@ -120,18 +131,23 @@ public class Program
     {
         var reviewCommand = new Command("review", "Show pull requests assigned to you for review (default command)");
 
-        reviewCommand.AddOption(detailedTimingOption);
-        reviewCommand.AddOption(showDetailedInfoOption);
+        reviewCommand.Options.Add(detailedTimingOption);
+        reviewCommand.Options.Add(showDetailedInfoOption);
 
-        reviewCommand.SetHandler(async (globalOptions, reviewOptions) =>
+        reviewCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var handler = services.GetRequiredService<ReviewCommandHandler>();
+            var verbose = parseResult.GetValue(verboseOption);
+            var format = parseResult.GetValue(formatOption);
+            var detailedTiming = parseResult.GetValue(detailedTimingOption);
+            var showDetailedInfo = parseResult.GetValue(showDetailedInfoOption);
+            var globalOptions = new GlobalOptions(verbose, format);
+            var reviewOptions = new ReviewOptions(detailedTiming, showDetailedInfo);
             await handler.HandleAsync(reviewOptions, globalOptions);
-        },
-        new GlobalOptionsBinder(verboseOption, formatOption),
-        new ReviewOptionsBinder(detailedTimingOption, showDetailedInfoOption));
+            return 0;
+        });
 
-        rootCommand.AddCommand(reviewCommand);
+        rootCommand.Subcommands.Add(reviewCommand);
     }
 
     private static void AddShowApprovedCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
@@ -139,124 +155,137 @@ public class Program
         var showApprovedCommand = new Command("approved", "Show table of already approved PRs");
 
         // Approved specific options
-        var detailedTimingOption = new Option<bool>(
-            aliases: ["--detailed-timing", "-t"],
-            description: "Show detailed age column - slower due to API calls");
+        var detailedTimingOption = new Option<bool>("--detailed-timing", "-t")
+        {
+            Description = "Show detailed age column - slower due to API calls"
+        };
 
-        var showDetailedInfoOption = new Option<bool>(
-            aliases: ["--show-detailed-info", "-d"],
-            description: "Show detailed information section for each pending PR");
+        var showDetailedInfoOption = new Option<bool>("--show-detailed-info", "-d")
+        {
+            Description = "Show detailed information section for each pending PR"
+        };
 
-        showApprovedCommand.AddOption(detailedTimingOption);
-        showApprovedCommand.AddOption(showDetailedInfoOption);
+        showApprovedCommand.Options.Add(detailedTimingOption);
+        showApprovedCommand.Options.Add(showDetailedInfoOption);
 
-        showApprovedCommand.SetHandler(async (globalOptions, approvedOptions) =>
+        showApprovedCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var handler = services.GetRequiredService<ApprovedCommandHandler>();
+            var verbose = parseResult.GetValue(verboseOption);
+            var format = parseResult.GetValue(formatOption);
+            var detailedTiming = parseResult.GetValue(detailedTimingOption);
+            var showDetailedInfo = parseResult.GetValue(showDetailedInfoOption);
+            var globalOptions = new GlobalOptions(verbose, format);
+            var approvedOptions = new ApprovedOptions(detailedTiming, showDetailedInfo);
             await handler.HandleAsync(approvedOptions, globalOptions);
-        },
-        new GlobalOptionsBinder(verboseOption, formatOption),
-        new ApprovedOptionsBinder(detailedTimingOption, showDetailedInfoOption));
+            return 0;
+        });
 
-        rootCommand.AddCommand(showApprovedCommand);
+        rootCommand.Subcommands.Add(showApprovedCommand);
     }
 
     private static void AddDiagnoseCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
     {
         var diagnoseCommand = new Command("diagnose", "Diagnose a specific PR ID to show raw reviewer data from Azure DevOps API");
 
-        var pullRequestIdArgument = new Argument<int>(
-            name: "id",
-            description: "The ID of the pull request to diagnose");
+        var pullRequestIdArgument = new Argument<int>("id")
+        {
+            Description = "The ID of the pull request to diagnose"
+        };
 
-        diagnoseCommand.AddArgument(pullRequestIdArgument);
+        diagnoseCommand.Arguments.Add(pullRequestIdArgument);
 
-        diagnoseCommand.SetHandler(async (globalOptions, diagnoseOptions) =>
+        diagnoseCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var handler = services.GetRequiredService<DiagnoseCommandHandler>();
+            var verbose = parseResult.GetValue(verboseOption);
+            var format = parseResult.GetValue(formatOption);
+            var pullRequestId = parseResult.GetValue(pullRequestIdArgument);
+            var globalOptions = new GlobalOptions(verbose, format);
+            var diagnoseOptions = new DiagnoseOptions(pullRequestId);
             await handler.HandleAsync(diagnoseOptions, globalOptions);
-        },
-        new GlobalOptionsBinder(verboseOption, formatOption),
-        new DiagnoseOptionsBinder(pullRequestIdArgument));
+            return 0;
+        });
 
-        rootCommand.AddCommand(diagnoseCommand);
+        rootCommand.Subcommands.Add(diagnoseCommand);
     }
 
     private static void AddCollectCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
     {
-        var collectCommand = new Command("collect", "Collect required reviewers from recent PRs and generate ApiReviewersFallback.cs code");
+        var collectCommand = new Command("collect", "Collect required reviewers from recent PRs and generate JSON configuration");
 
-        var dryRunOption = new Option<bool>(
-            aliases: ["--dry-run", "-n"],
-            description: "Show what would be generated without writing to file");
+        var dryRunOption = new Option<bool>("--dry-run", "-n")
+        {
+            Description = "Show what would be generated without writing to file"
+        };
 
-        collectCommand.AddOption(dryRunOption);
+        collectCommand.Options.Add(dryRunOption);
 
-        collectCommand.SetHandler(async (globalOptions, collectOptions) =>
+        collectCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var handler = services.GetRequiredService<CollectCommandHandler>();
+            var verbose = parseResult.GetValue(verboseOption);
+            var format = parseResult.GetValue(formatOption);
+            var dryRun = parseResult.GetValue(dryRunOption);
+            var globalOptions = new GlobalOptions(verbose, format);
+            var collectOptions = new CollectOptions(dryRun);
             await handler.HandleAsync(collectOptions, globalOptions);
-        },
-        new GlobalOptionsBinder(verboseOption, formatOption),
-        new CollectOptionsBinder(dryRunOption));
+            return 0;
+        });
 
-        rootCommand.AddCommand(collectCommand);
+        rootCommand.Subcommands.Add(collectCommand);
     }
 
     private static void AddPreferencesCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
     {
-        var preferencesCommand = new Command("preferences", "Manage Teams preferences");
+        var preferencesCommand = new Command("preferences", "Manage Reviewer Assignment preferences");
 
         // Create get subcommand
-        var getCommand = new Command("get", "Get current Teams preferences");
-        var getFormatOption = new Option<string>(
-            name: "--format",
-            description: "Output format: table (default), json")
+        var getCommand = new Command("get", "Get current Reviewer Assignment preferences");
+        var getFormatOption = new Option<string>("--format", "-f")
         {
-            IsRequired = false
+            Description = "Output format: table (default), json",
+            DefaultValueFactory = _ => "table"
         };
-        getFormatOption.SetDefaultValue("table");
-        getFormatOption.AddAlias("-f");
 
-        var showAllOption = new Option<bool>(
-            name: "--all",
-            description: "Show all preferences (default shows only time allocation)")
+        var showAllOption = new Option<bool>("--all", "-a")
         {
-            IsRequired = false
+            Description = "Show all preferences (default shows only time allocation)"
         };
-        showAllOption.AddAlias("-a");
 
-        getCommand.AddOption(getFormatOption);
-        getCommand.AddOption(showAllOption);
-        getCommand.SetHandler(async (format, showAll, verbose) =>
+        getCommand.Options.Add(getFormatOption);
+        getCommand.Options.Add(showAllOption);
+        getCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var handler = services.GetRequiredService<PreferencesCommandHandler>();
+            var format = parseResult.GetValue(getFormatOption);
+            var showAll = parseResult.GetValue(showAllOption);
+            var verbose = parseResult.GetValue(verboseOption);
             var result = await handler.HandleGetPreferencesAsync(format, verbose, showAll);
             Environment.Exit(result);
-        }, getFormatOption, showAllOption, verboseOption);
+        });
 
         // Create set subcommand
-        var setCommand = new Command("set", "Set Teams preferences");
-        var timeAllocationOption = new Option<int>(
-            name: "--time-allocation",
-            description: "Time allocation value (0-100)")
+        var setCommand = new Command("set", "Set Reviewer Assignment Preferences");
+        var timeAllocationOption = new Option<int>("--time-allocation", "-t")
         {
-            IsRequired = true
+            Description = "Time allocation value (0-100)"
         };
-        timeAllocationOption.AddAlias("-t");
 
-        setCommand.AddOption(timeAllocationOption);
-        setCommand.SetHandler(async (timeAllocation, verbose) =>
+        setCommand.Options.Add(timeAllocationOption);
+        setCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var handler = services.GetRequiredService<PreferencesCommandHandler>();
+            var timeAllocation = parseResult.GetValue(timeAllocationOption);
+            var verbose = parseResult.GetValue(verboseOption);
             var result = await handler.HandleSetTimeAllocationAsync(timeAllocation, verbose);
             Environment.Exit(result);
-        }, timeAllocationOption, verboseOption);
+        });
 
         // Add subcommands to preferences command
-        preferencesCommand.AddCommand(getCommand);
-        preferencesCommand.AddCommand(setCommand);
+        preferencesCommand.Subcommands.Add(getCommand);
+        preferencesCommand.Subcommands.Add(setCommand);
 
-        rootCommand.AddCommand(preferencesCommand);
+        rootCommand.Subcommands.Add(preferencesCommand);
     }
 }

@@ -12,9 +12,9 @@ public class PullRequestDataLoader
 {
     private readonly ApiReviewersGroupService _groupService;
 
-    public PullRequestDataLoader()
+    public PullRequestDataLoader(ApiReviewersGroupService groupService)
     {
-        _groupService = new ApiReviewersGroupService();
+        _groupService = groupService;
     }
 
     /// <summary>

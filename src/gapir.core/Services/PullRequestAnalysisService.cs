@@ -128,22 +128,14 @@ public class PullRequestAnalysisService
     {
         try
         {
-            // Check for required reviewers and their assignment timing
-            var requiredReviewers = pr.Reviewers?.Where(r => r.IsRequired == true).ToList();
-            
-            if (requiredReviewers == null || requiredReviewers.Count == 0)
-            {
-                return "No required reviewers";
-            }
-
             // For now, we'll use the PR creation date as the baseline for reviewer assignment
             // Azure DevOps API doesn't directly provide reviewer assignment timestamps in the basic PR data
             // To get exact assignment times, we would need to query the pull request timeline/updates API
             var timeSinceCreation = DateTime.UtcNow - pr.CreationDate;
             var formattedTime = FormatTimeDifference(timeSinceCreation);
             
-            // Show count of required reviewers and time since PR creation (when reviewers were likely assigned)
-            return $"{requiredReviewers.Count} required, assigned ~{formattedTime} ago";
+            // Show time since PR creation in concise format to fit in the Age column (max width 10 chars)
+            return $"≈{formattedTime} ago";
         }
         catch
         {

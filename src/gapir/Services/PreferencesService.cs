@@ -4,7 +4,7 @@ using Microsoft.Graph.Models;
 namespace gapir.Services;
 
 /// <summary>
-/// Service for managing Teams preferences via Microsoft Graph API
+/// Service for managing Reviewer Assignment Preferences via Microsoft Graph API
 /// </summary>
 public class PreferencesService
 {
@@ -17,14 +17,14 @@ public class PreferencesService
     }
 
     /// <summary>
-    /// Gets the current Teams preferences for the authenticated user
+    /// Gets the current Reviewer Assignment preferences for the authenticated user
     /// </summary>
-    /// <returns>TeamsPreferences object containing current settings</returns>
-    public async Task<TeamsPreferences?> GetPreferencesAsync()
+    /// <returns>ReviewerAssignmentPreferences object containing current settings</returns>
+    public async Task<ReviewerAssignmentPreferences?> GetPreferencesAsync()
     {
         try
         {
-            Log.Information("Retrieving Teams preferences...");
+            Log.Information("Retrieving Reviewer Assignment preferences...");
             var graphClient = await _authService.GetGraphClientAsync();
 
             // Get the extension data for the authenticated user
@@ -33,7 +33,7 @@ public class PreferencesService
 
             if (extension?.AdditionalData != null)
             {
-                var preferences = new TeamsPreferences();
+                var preferences = new ReviewerAssignmentPreferences();
                 
                 if (extension.AdditionalData.TryGetValue("timeAllocation", out var timeAllocation))
                 {
@@ -81,14 +81,14 @@ public class PreferencesService
     }
 
     /// <summary>
-    /// Updates the Teams preferences for the authenticated user
+    /// Updates the Reviewer Assignment Preferences for the authenticated user
     /// </summary>
     /// <param name="preferences">Updated preferences to set</param>
-    public async Task UpdatePreferencesAsync(TeamsPreferences preferences)
+    public async Task UpdatePreferencesAsync(ReviewerAssignmentPreferences preferences)
     {
         try
         {
-            Log.Information("Updating Teams preferences...");
+            Log.Information("Updating Reviewer Assignment preferences...");
             var graphClient = await _authService.GetGraphClientAsync();
 
             var extensionData = new Dictionary<string, object>
@@ -108,11 +108,11 @@ public class PreferencesService
             await graphClient.Me.Extensions[ExtensionId]
                 .PatchAsync(extension);
 
-            Log.Success("Successfully updated Teams preferences");
+            Log.Success("Successfully updated Reviewer Assignment preferences");
         }
         catch (Exception ex)
         {
-            Log.Error($"Error updating Teams preferences: {ex.Message}");
+            Log.Error($"Error updating Reviewer Assignment preferences: {ex.Message}");
             throw;
         }
     }
@@ -127,7 +127,7 @@ public class PreferencesService
         if (currentPreferences == null)
         {
             // Create default preferences if none exist
-            currentPreferences = new TeamsPreferences
+            currentPreferences = new ReviewerAssignmentPreferences
             {
                 TimeAllocation = timeAllocation,
                 SecondaryOnCallStrategy = "available",
@@ -145,9 +145,9 @@ public class PreferencesService
 }
 
 /// <summary>
-/// Represents Teams preferences structure
+/// Reviewer Assignment Preferences structure
 /// </summary>
-public class TeamsPreferences
+public class ReviewerAssignmentPreferences
 {
     public int TimeAllocation { get; set; }
     public string SecondaryOnCallStrategy { get; set; } = "available";

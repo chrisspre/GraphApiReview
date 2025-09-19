@@ -6,6 +6,12 @@ using Microsoft.VisualStudio.Services.Identity.Client;
 
 public class ApiReviewersGroupService
 {
+    private readonly ReviewersConfigurationService _reviewersConfig;
+
+    public ApiReviewersGroupService(ReviewersConfigurationService reviewersConfig)
+    {
+        _reviewersConfig = reviewersConfig;
+    }
 
     public async Task<HashSet<string>> GetGroupMembersAsync(VssConnection connection)
     {
@@ -45,14 +51,14 @@ public class ApiReviewersGroupService
             if (groupMembers.Count == 0)
             {
                 Log.Warning("No API reviewers found via group membership, using static fallback");
-                groupMembers = GetStaticApiReviewersFallback();
+                groupMembers = await GetStaticApiReviewersFallbackAsync();
             }
         }
         catch (Exception ex)
         {
             Log.Error($"Error fetching API reviewers: {ex.Message}");
             Log.Information("Using static fallback list");
-            groupMembers = GetStaticApiReviewersFallback();
+            groupMembers = await GetStaticApiReviewersFallbackAsync();
         }
 
         return groupMembers;
@@ -159,11 +165,14 @@ public class ApiReviewersGroupService
         }
     }
 
-    private static HashSet<string> GetStaticApiReviewersFallback()
+    private async Task<HashSet<string>> GetStaticApiReviewersFallbackAsync()
     {
-        // Return static list from generated class
-        Log.Information($"Using static fallback list with {ApiReviewersFallback.KnownApiReviewers.Count} known API reviewers");
-        return new HashSet<string>(ApiReviewersFallback.KnownApiReviewers, StringComparer.OrdinalIgnoreCase);
+        // Load reviewers from JSON configuration
+        var config = await _reviewersConfig.LoadConfigurationAsync();
+        var emailAddresses = config.GetEmailAddresses();
+        
+        Log.Information($"Using configuration fallback list with {emailAddresses.Count} known API reviewers");
+        return new HashSet<string>(emailAddresses, StringComparer.OrdinalIgnoreCase);
     }
 
 }

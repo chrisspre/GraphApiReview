@@ -7,7 +7,13 @@ using gapir.Models;
 public class PullRequestDataService
 {
     // Store API reviewers group members to avoid repeated API calls
-    private  HashSet<string>? _apiReviewersMembers;
+    private HashSet<string>? _apiReviewersMembers;
+    private readonly ApiReviewersGroupService _groupService;
+
+    public PullRequestDataService(ApiReviewersGroupService groupService)
+    {
+        _groupService = groupService;
+    }
 
     public async Task<GapirResult> GetPullRequestDataAsync(VssConnection connection)    
     {
@@ -27,8 +33,7 @@ public class PullRequestDataService
 
             // Pre-load API reviewers group members
             Log.Information("Loading API reviewers group...");
-            var groupService = new ApiReviewersGroupService();
-            _apiReviewersMembers = await groupService.GetGroupMembersAsync(connection);
+            _apiReviewersMembers = await _groupService.GetGroupMembersAsync(connection);
 
 
             // Initialize analysis service

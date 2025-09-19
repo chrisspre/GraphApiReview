@@ -2,7 +2,7 @@
 mode: agent
 ---
 
-i would like to add another dotnet cli tool under src that allows me to set the baffino preferences from the command line
+i would like to add another dotnet cli tool under src that allows me to set the Reviewer assignment preferences from the command line
 
 
 the references are set via a PATCH request 
