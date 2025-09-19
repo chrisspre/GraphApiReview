@@ -4,19 +4,19 @@ using gapir.Services;
 namespace gapir.Handlers;
 
 /// <summary>
-/// Command handler for Baffino preferences management
+/// Command handler for Teams preferences management
 /// </summary>
-public class BaffinoCommandHandler
+public class PreferencesCommandHandler
 {
-    private readonly BaffinoPreferencesService _preferencesService;
+    private readonly PreferencesService _preferencesService;
 
-    public BaffinoCommandHandler(BaffinoPreferencesService preferencesService)
+    public PreferencesCommandHandler(PreferencesService preferencesService)
     {
         _preferencesService = preferencesService;
     }
 
     /// <summary>
-    /// Handles the get baffino preferences command
+    /// Handles the get preferences command
     /// </summary>
     public async Task<int> HandleGetPreferencesAsync(string format, bool verbose, bool showAll)
     {
@@ -24,22 +24,22 @@ public class BaffinoCommandHandler
         {
             if (verbose)
             {
-                Log.Information("🔍 Retrieving Baffino preferences...");
+                Log.Information("🔍 Retrieving Teams preferences...");
             }
             
             var preferences = await _preferencesService.GetPreferencesAsync();
             
             if (preferences == null)
             {
-                Console.WriteLine("❌ No Baffino preferences found for the current user.");
-                Console.WriteLine("   You may need to set up Baffino preferences first using the 'baffino set' command.");
+                Console.WriteLine("❌ No Teams preferences found for the current user.");
+                Console.WriteLine("   You may need to set up Teams preferences first using the 'preferences set' command.");
                 return 1;
             }
 
             if (!verbose)
             {
                 Console.WriteLine();
-                Console.WriteLine("✅ Current Baffino Preferences:");
+                Console.WriteLine("✅ Current Teams Preferences:");
                 Console.WriteLine();
             }
 
@@ -88,7 +88,7 @@ public class BaffinoCommandHandler
     }
 
     /// <summary>
-    /// Handles the set baffino time allocation command
+    /// Handles the set time allocation command
     /// </summary>
     public async Task<int> HandleSetTimeAllocationAsync(int timeAllocation, bool verbose)
     {

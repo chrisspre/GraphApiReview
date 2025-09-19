@@ -50,14 +50,14 @@ public class Program
         services.AddScoped<ApprovedCommandHandler>();
         services.AddScoped<DiagnoseCommandHandler>();
         services.AddScoped<CollectCommandHandler>();
-        services.AddScoped<BaffinoCommandHandler>();
+        services.AddScoped<PreferencesCommandHandler>();
         
         // Rendering services
         services.AddScoped<PullRequestRenderingService>();
         
-        // Baffino services
+        // Teams preferences services
         services.AddScoped<GraphAuthenticationService>();
-        services.AddScoped<BaffinoPreferencesService>();
+        services.AddScoped<PreferencesService>();
     }
 
     /// <summary>
@@ -102,7 +102,7 @@ public class Program
         AddCollectCommand(rootCommand, verboseOption, formatOption, services);
         AddDiagnoseCommand(rootCommand, verboseOption, formatOption, services);
         AddShowApprovedCommand(rootCommand, verboseOption, formatOption, services);
-        AddBaffinoCommand(rootCommand, verboseOption, formatOption, services);
+        AddPreferencesCommand(rootCommand, verboseOption, formatOption, services);
 
         // This is also the default command
         rootCommand.SetHandler(async (globalOptions, reviewOptions) =>
@@ -203,12 +203,12 @@ public class Program
         rootCommand.AddCommand(collectCommand);
     }
 
-    private static void AddBaffinoCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
+    private static void AddPreferencesCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
     {
-        var baffinoCommand = new Command("baffino", "Manage Teams Baffino preferences");
+        var preferencesCommand = new Command("preferences", "Manage Teams preferences");
 
         // Create get subcommand
-        var getCommand = new Command("get", "Get current Baffino preferences");
+        var getCommand = new Command("get", "Get current Teams preferences");
         var getFormatOption = new Option<string>(
             name: "--format",
             description: "Output format: table (default), json")
@@ -230,13 +230,13 @@ public class Program
         getCommand.AddOption(showAllOption);
         getCommand.SetHandler(async (format, showAll, verbose) =>
         {
-            var handler = services.GetRequiredService<BaffinoCommandHandler>();
+            var handler = services.GetRequiredService<PreferencesCommandHandler>();
             var result = await handler.HandleGetPreferencesAsync(format, verbose, showAll);
             Environment.Exit(result);
         }, getFormatOption, showAllOption, verboseOption);
 
         // Create set subcommand
-        var setCommand = new Command("set", "Set Baffino preferences");
+        var setCommand = new Command("set", "Set Teams preferences");
         var timeAllocationOption = new Option<int>(
             name: "--time-allocation",
             description: "Time allocation value (0-100)")
@@ -248,15 +248,15 @@ public class Program
         setCommand.AddOption(timeAllocationOption);
         setCommand.SetHandler(async (timeAllocation, verbose) =>
         {
-            var handler = services.GetRequiredService<BaffinoCommandHandler>();
+            var handler = services.GetRequiredService<PreferencesCommandHandler>();
             var result = await handler.HandleSetTimeAllocationAsync(timeAllocation, verbose);
             Environment.Exit(result);
         }, timeAllocationOption, verboseOption);
 
-        // Add subcommands to baffino command
-        baffinoCommand.AddCommand(getCommand);
-        baffinoCommand.AddCommand(setCommand);
+        // Add subcommands to preferences command
+        preferencesCommand.AddCommand(getCommand);
+        preferencesCommand.AddCommand(setCommand);
 
-        rootCommand.AddCommand(baffinoCommand);
+        rootCommand.AddCommand(preferencesCommand);
     }
 }

@@ -4,27 +4,27 @@ using Microsoft.Graph.Models;
 namespace gapir.Services;
 
 /// <summary>
-/// Service for managing Baffino preferences via Microsoft Graph API
+/// Service for managing Teams preferences via Microsoft Graph API
 /// </summary>
-public class BaffinoPreferencesService
+public class PreferencesService
 {
     private const string ExtensionId = "microsoft.teams.baffino";
     private readonly GraphAuthenticationService _authService;
 
-    public BaffinoPreferencesService(GraphAuthenticationService authService)
+    public PreferencesService(GraphAuthenticationService authService)
     {
         _authService = authService;
     }
 
     /// <summary>
-    /// Gets the current Baffino preferences for the authenticated user
+    /// Gets the current Teams preferences for the authenticated user
     /// </summary>
-    /// <returns>BaffinoPreferences object containing current settings</returns>
-    public async Task<BaffinoPreferences?> GetPreferencesAsync()
+    /// <returns>TeamsPreferences object containing current settings</returns>
+    public async Task<TeamsPreferences?> GetPreferencesAsync()
     {
         try
         {
-            Log.Information("Retrieving Baffino preferences...");
+            Log.Information("Retrieving Teams preferences...");
             var graphClient = await _authService.GetGraphClientAsync();
 
             // Get the extension data for the authenticated user
@@ -33,7 +33,7 @@ public class BaffinoPreferencesService
 
             if (extension?.AdditionalData != null)
             {
-                var preferences = new BaffinoPreferences();
+                var preferences = new TeamsPreferences();
                 
                 if (extension.AdditionalData.TryGetValue("timeAllocation", out var timeAllocation))
                 {
@@ -81,14 +81,14 @@ public class BaffinoPreferencesService
     }
 
     /// <summary>
-    /// Updates the Baffino preferences for the authenticated user
+    /// Updates the Teams preferences for the authenticated user
     /// </summary>
     /// <param name="preferences">Updated preferences to set</param>
-    public async Task UpdatePreferencesAsync(BaffinoPreferences preferences)
+    public async Task UpdatePreferencesAsync(TeamsPreferences preferences)
     {
         try
         {
-            Log.Information("Updating Baffino preferences...");
+            Log.Information("Updating Teams preferences...");
             var graphClient = await _authService.GetGraphClientAsync();
 
             var extensionData = new Dictionary<string, object>
@@ -108,11 +108,11 @@ public class BaffinoPreferencesService
             await graphClient.Me.Extensions[ExtensionId]
                 .PatchAsync(extension);
 
-            Log.Success("Successfully updated Baffino preferences");
+            Log.Success("Successfully updated Teams preferences");
         }
         catch (Exception ex)
         {
-            Log.Error($"Error updating Baffino preferences: {ex.Message}");
+            Log.Error($"Error updating Teams preferences: {ex.Message}");
             throw;
         }
     }
@@ -127,7 +127,7 @@ public class BaffinoPreferencesService
         if (currentPreferences == null)
         {
             // Create default preferences if none exist
-            currentPreferences = new BaffinoPreferences
+            currentPreferences = new TeamsPreferences
             {
                 TimeAllocation = timeAllocation,
                 SecondaryOnCallStrategy = "available",
@@ -145,9 +145,9 @@ public class BaffinoPreferencesService
 }
 
 /// <summary>
-/// Represents Baffino preferences structure
+/// Represents Teams preferences structure
 /// </summary>
-public class BaffinoPreferences
+public class TeamsPreferences
 {
     public int TimeAllocation { get; set; }
     public string SecondaryOnCallStrategy { get; set; } = "available";
