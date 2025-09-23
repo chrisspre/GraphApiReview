@@ -30,6 +30,14 @@ public class PullRequestAnalyzer
     }
 
     /// <summary>
+    /// Filters pull requests to show only completed ones where the current user was a reviewer
+    /// </summary>
+    public IEnumerable<PullRequestInfo> FilterCompletedPullRequests(IEnumerable<PullRequestInfo> allPRs)
+    {
+        return allPRs.Where(info => info.IsCompleted);
+    }
+
+    /// <summary>
     /// Gets statistics about all pull requests
     /// </summary>
     public PullRequestStatistics GetStatistics(IEnumerable<PullRequestInfo> allPRs)

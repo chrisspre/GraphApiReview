@@ -9,6 +9,13 @@ using gapir.Models;
 /// </summary>
 public class PullRequestDiagnosticService
 {
+    private readonly AzureDevOpsConfiguration _adoConfig;
+
+    public PullRequestDiagnosticService(AzureDevOpsConfiguration adoConfig)
+    {
+        _adoConfig = adoConfig;
+    }
+
     public async Task<PullRequestDiagnosticResult> DiagnosePullRequestAsync(VssConnection connection, int prId)
     {
         var result = new PullRequestDiagnosticResult { PullRequestId = prId };
@@ -18,7 +25,7 @@ public class PullRequestDiagnosticService
             var gitClient = connection.GetClient<GitHttpClient>();
             
             // Get repository information the same way as the main tool
-            var repository = await gitClient.GetRepositoryAsync(AdoConfig.ProjectName, AdoConfig.RepositoryName);
+            var repository = await gitClient.GetRepositoryAsync(_adoConfig.ProjectName, _adoConfig.RepositoryName);
             
             // Get the specific PR
             var pr = await gitClient.GetPullRequestAsync(repository.Id, prId);

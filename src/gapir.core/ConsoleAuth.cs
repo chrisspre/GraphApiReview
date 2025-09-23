@@ -2,6 +2,7 @@ namespace gapir;
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using gapir.Models;
 using gapir.Services;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Broker;
@@ -14,21 +15,28 @@ using Microsoft.VisualStudio.Services.WebApi;
 /// <summary>
 /// Provides console-based authentication for Azure DevOps using MSAL with brokered authentication support.
 /// </summary>
-public static class ConsoleAuth
+public class ConsoleAuth
 {
+    private readonly AuthenticationConfiguration _authConfig;
+    private readonly AzureDevOpsConfiguration _adoConfig;
     private static readonly string Authority = "https://login.microsoftonline.com/common";
     private static readonly string[] Scopes = ["499b84ac-1321-427f-aa17-267ca6975798/.default"]; // Azure DevOps scope
 
     // private static readonly string TenantId = "common";
     private static readonly string TenantId = "72f988bf-86f1-41af-91ab-2d7cd011db47"; // microsoft.onmicrosoft.com
 
+    public ConsoleAuth(AuthenticationConfiguration authConfig, AzureDevOpsConfiguration adoConfig)
+    {
+        _authConfig = authConfig;
+        _adoConfig = adoConfig;
+    }
 
     /// <summary>
     /// Authenticates with Azure DevOps and returns a VssConnection.
     /// </summary>
     /// <param name="organizationUrl">The Azure DevOps organization URL.</param>
     /// <returns>A VssConnection if authentication succeeds, null otherwise.</returns>
-    public static async Task<VssConnection?> AuthenticateAsync()
+    public async Task<VssConnection?> AuthenticateAsync()
     {
         try
         {
@@ -41,10 +49,10 @@ public static class ConsoleAuth
             // Create the MSAL client with brokered authentication support
             var brokerOptions = new BrokerOptions(BrokerOptions.OperatingSystems.Windows);
             var app = PublicClientApplicationBuilder
-                .Create(AdoConfig.ClientId)
+                .Create(_authConfig.ClientId)
                 .WithAuthority(Authority)
                 .WithTenantId(TenantId)
-                .WithRedirectUri($"ms-appx-web://microsoft.aad.brokerplugin/{AdoConfig.ClientId}")
+                .WithRedirectUri($"ms-appx-web://microsoft.aad.brokerplugin/{_authConfig.ClientId}")
                 .WithBroker(brokerOptions) // Enable brokered authentication (WAM)
                 .Build();
 
@@ -91,7 +99,7 @@ public static class ConsoleAuth
                 // Create VssConnection with the access token
                 var token = new VssAadToken("Bearer", result.AccessToken);
                 var credentials = new VssAadCredential(token);
-                var connection = new VssConnection(new Uri(AdoConfig.OrganizationUrl), credentials);
+                var connection = new VssConnection(new Uri(_adoConfig.OrganizationUrl), credentials);
 
                 // Test the connection
                 Log.Information("Testing connection...");

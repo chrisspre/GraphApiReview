@@ -10,22 +10,13 @@ public static class Log
     /// Pre-calculated log level prefixes to avoid repeated conditional checks during logging.
     /// Supports both emoji and text-based prefixes with consistent spacing.
     /// </summary>
-    private readonly struct LogLevelPrefixes
+    private readonly struct LogLevelPrefixes(bool useEmoji)
     {
-        public readonly string Information;
-        public readonly string Warning;
-        public readonly string Error;
-        public readonly string Success;
-        public readonly string Debug;
-
-        public LogLevelPrefixes(bool useEmoji)
-        {
-            Information = useEmoji ? "ℹ️ " : "[INFO] ";
-            Warning     = useEmoji ? "⚠️ " : "[WARN] ";
-            Error       = useEmoji ? "❌ " : "[ERROR] ";
-            Success     = useEmoji ? "✅ " : "[SUCCESS] ";
-            Debug       = useEmoji ? "🔍 " : "[DEBUG] ";
-        }
+        public readonly string Information = useEmoji ? "ℹ️ " : "[INFO] ";
+        public readonly string Warning = useEmoji ? "⚠️ " : "[WARN] ";
+        public readonly string Error = useEmoji ? "❌ " : "[ERROR] ";
+        public readonly string Success = useEmoji ? "✅ " : "[SUCCESS] ";
+        public readonly string Debug = useEmoji ? "🔍 " : "[DEBUG] ";
     }
 
     private static bool _isVerbose = false;

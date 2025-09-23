@@ -11,10 +11,12 @@ namespace gapir.Services;
 public class PullRequestDataLoader
 {
     private readonly ApiReviewersGroupService _groupService;
+    private readonly AzureDevOpsConfiguration _adoConfig;
 
-    public PullRequestDataLoader(ApiReviewersGroupService groupService)
+    public PullRequestDataLoader(ApiReviewersGroupService groupService, AzureDevOpsConfiguration adoConfig)
     {
         _groupService = groupService;
+        _adoConfig = adoConfig;
     }
 
     /// <summary>
@@ -26,7 +28,7 @@ public class PullRequestDataLoader
         {
             // Get repository information
             var gitClient = connection.GetClient<GitHttpClient>();
-            var repository = await gitClient.GetRepositoryAsync(AdoConfig.ProjectName, AdoConfig.RepositoryName);
+            var repository = await gitClient.GetRepositoryAsync(_adoConfig.ProjectName, _adoConfig.RepositoryName);
 
             var (currentUserId, currentUserDisplayName) = GetCurrentUserInfo(connection);
             Log.Information($"Checking pull requests for user: {currentUserDisplayName}");

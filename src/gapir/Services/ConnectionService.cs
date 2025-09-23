@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.Services.WebApi;
+using gapir;
 
 namespace gapir.Services;
 
@@ -7,8 +8,14 @@ namespace gapir.Services;
 /// </summary>
 public class ConnectionService
 {
+    private readonly ConsoleAuth _consoleAuth;
     private VssConnection? _connection;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
+
+    public ConnectionService(ConsoleAuth consoleAuth)
+    {
+        _consoleAuth = consoleAuth;
+    }
 
     /// <summary>
     /// Gets the authenticated VssConnection
@@ -23,7 +30,7 @@ public class ConnectionService
         {
             if (_connection == null)
             {
-                _connection = await ConsoleAuth.AuthenticateAsync();
+                _connection = await _consoleAuth.AuthenticateAsync();
             }
             return _connection;
         }

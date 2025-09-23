@@ -3,6 +3,7 @@ using Microsoft.Graph.Models;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Broker;
 using System.Runtime.InteropServices;
+using gapir.Models;
 
 namespace gapir.Services;
 
@@ -17,11 +18,13 @@ public class GraphAuthenticationService
     private const string TenantId = "common";
 
     private readonly string _cacheDir;
+    private readonly AuthenticationConfiguration _authConfig;
     private IPublicClientApplication? _app;
     private GraphServiceClient? _graphClient;
 
-    public GraphAuthenticationService()
+    public GraphAuthenticationService(AuthenticationConfiguration authConfig)
     {
+        _authConfig = authConfig;
         _cacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "gapir");
         Directory.CreateDirectory(_cacheDir);
     }
@@ -103,10 +106,10 @@ public class GraphAuthenticationService
         // Create the MSAL client with brokered authentication support
         var brokerOptions = new BrokerOptions(BrokerOptions.OperatingSystems.Windows);
         _app = PublicClientApplicationBuilder
-            .Create(AdoConfig.ClientId) // Use same app ID as gapir
+            .Create(_authConfig.ClientId) // Use same app ID as gapir
             .WithAuthority(Authority)
             .WithTenantId(TenantId)
-            .WithRedirectUri($"ms-appx-web://microsoft.aad.brokerplugin/{AdoConfig.ClientId}")
+            .WithRedirectUri($"ms-appx-web://microsoft.aad.brokerplugin/{_authConfig.ClientId}")
             .WithBroker(brokerOptions) // Enable brokered authentication (WAM)
             .Build();
 

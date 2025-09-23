@@ -34,7 +34,14 @@ public class Program
     /// </summary>
     private static void ConfigureServices(IServiceCollection services)
     {
+        // Configuration
+        services.AddSingleton<AzureDevOpsConfiguration>();
+        services.AddSingleton<AuthenticationConfiguration>();
+        
         // Core services from gapir.core
+        services.AddSingleton<ConsoleAuth>();
+        services.AddScoped<PullRequestDiagnosticService>();
+        
         // Register services
         services.AddSingleton<ConnectionService>();
         services.AddSingleton<ReviewersConfigurationService>();
@@ -42,21 +49,26 @@ public class Program
         services.AddScoped<PullRequestDataService>();
         services.AddScoped<ConsoleLogger>();
         services.AddScoped<PullRequestDataLoader>();
+        services.AddScoped<CompletedPullRequestDataLoader>();
         services.AddScoped<PullRequestAnalyzer>();
         services.AddScoped<PendingPullRequestService>();
         services.AddScoped<ApprovedPullRequestService>();
+        services.AddScoped<CompletedPullRequestService>();
         services.AddScoped<PullRequestDiagnostics>();
         services.AddScoped<ReviewerCollector>();
         
         // Command handlers
         services.AddScoped<ReviewCommandHandler>();
         services.AddScoped<ApprovedCommandHandler>();
+        services.AddScoped<CompletedCommandHandler>();
         services.AddScoped<DiagnoseCommandHandler>();
         services.AddScoped<CollectCommandHandler>();
         services.AddScoped<PreferencesCommandHandler>();
         
         // Rendering services
         services.AddScoped<PullRequestRenderingService>();
+        services.AddScoped<TerminalLinkService>();
+        services.AddScoped<GraphAuthenticationService>();
         
         // Reviewer Assignment preferences services
         services.AddScoped<GraphAuthenticationService>();
@@ -108,6 +120,7 @@ public class Program
         AddCollectCommand(rootCommand, verboseOption, formatOption, services);
         AddDiagnoseCommand(rootCommand, verboseOption, formatOption, services);
         AddShowApprovedCommand(rootCommand, verboseOption, formatOption, services);
+        AddCompletedCommand(rootCommand, verboseOption, formatOption, services);
         AddPreferencesCommand(rootCommand, verboseOption, formatOption, services);
 
         // This is also the default command
@@ -182,6 +195,40 @@ public class Program
         });
 
         rootCommand.Subcommands.Add(showApprovedCommand);
+    }
+
+    private static void AddCompletedCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
+    {
+        var completedCommand = new Command("completed", "Show table of completed PRs from last 30 days where you were reviewer");
+
+        // Completed specific options
+        var detailedTimingOption = new Option<bool>("--detailed-timing", "-t")
+        {
+            Description = "Show detailed timing information including closure dates"
+        };
+
+        var showDetailedInfoOption = new Option<bool>("--show-detailed-info", "-d")
+        {
+            Description = "Show detailed information section for each completed PR"
+        };
+
+        completedCommand.Options.Add(detailedTimingOption);
+        completedCommand.Options.Add(showDetailedInfoOption);
+
+        completedCommand.SetAction(async (parseResult, cancellationToken) =>
+        {
+            var handler = services.GetRequiredService<CompletedCommandHandler>();
+            var verbose = parseResult.GetValue(verboseOption);
+            var format = parseResult.GetValue(formatOption);
+            var detailedTiming = parseResult.GetValue(detailedTimingOption);
+            var showDetailedInfo = parseResult.GetValue(showDetailedInfoOption);
+            var globalOptions = new GlobalOptions(verbose, format);
+            var completedOptions = new CompletedOptions(detailedTiming, showDetailedInfo);
+            await handler.HandleAsync(completedOptions, globalOptions);
+            return 0;
+        });
+
+        rootCommand.Subcommands.Add(completedCommand);
     }
 
     private static void AddDiagnoseCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)

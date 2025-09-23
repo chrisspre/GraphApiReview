@@ -1,6 +1,6 @@
-using gapir.Services;
-
 namespace gapir.Services;
+
+using gapir.Models;
 
 /// <summary>
 /// Service for generating OSC 8 hyperlinks in terminal output
@@ -8,6 +8,12 @@ namespace gapir.Services;
 /// </summary>
 public class TerminalLinkService
 {
+    private readonly AzureDevOpsConfiguration _adoConfig;
+
+    public TerminalLinkService(AzureDevOpsConfiguration adoConfig)
+    {
+        _adoConfig = adoConfig;
+    }
     /// <summary>
     /// Creates a clickable link in the terminal using OSC 8 escape sequences
     /// Falls back to displaying just the text in terminals that don't support OSC 8
@@ -29,9 +35,9 @@ public class TerminalLinkService
     /// <param name="pullRequestId">The pull request ID</param>
     /// <param name="title">The pull request title</param>
     /// <returns>OSC 8 formatted clickable link</returns>
-    public static string CreatePullRequestLink(int pullRequestId, string title)
+    public string CreatePullRequestLink(int pullRequestId, string title)
     {
-        var url = AdoConfig.GetPullRequestUrl(pullRequestId);
+        var url = _adoConfig.GetPullRequestUrl(pullRequestId);
         return CreateLink(title, url);
     }
 

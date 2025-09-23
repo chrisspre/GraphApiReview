@@ -8,6 +8,15 @@ using gapir.Services;
 /// </summary>
 public class PullRequestDiagnostics
 {
+    private readonly ConsoleAuth _consoleAuth;
+    private readonly PullRequestDiagnosticService _diagnosticService;
+
+    public PullRequestDiagnostics(ConsoleAuth consoleAuth, PullRequestDiagnosticService diagnosticService)
+    {
+        _consoleAuth = consoleAuth;
+        _diagnosticService = diagnosticService;
+    }
+
     // private readonly Format _format;
 
     // public PullRequestDiagnosticChecker(Format format)
@@ -28,7 +37,7 @@ public class PullRequestDiagnostics
         try
         {
             Log.Information("Authenticating with Azure DevOps...");
-            var connection = await ConsoleAuth.AuthenticateAsync();
+            var connection = await _consoleAuth.AuthenticateAsync();
 
             if (connection == null)
             {
@@ -43,8 +52,7 @@ public class PullRequestDiagnostics
             Log.Success("Authentication successful");
 
             // Get diagnostic data using the diagnostic service
-            var diagnosticService = new PullRequestDiagnosticService();
-            return await diagnosticService.DiagnosePullRequestAsync(connection, prId);
+            return await _diagnosticService.DiagnosePullRequestAsync(connection, prId);
         }
         catch (Exception ex)
         {

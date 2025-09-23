@@ -6,8 +6,11 @@ using System.Text.RegularExpressions;
 
 public partial class PullRequestRenderingService
 {
-    public PullRequestRenderingService()
+    private readonly TerminalLinkService _terminalLinkService;
+
+    public PullRequestRenderingService(TerminalLinkService terminalLinkService)
     {
+        _terminalLinkService = terminalLinkService;
     }
 
     /// <summary>
@@ -37,6 +40,21 @@ public partial class PullRequestRenderingService
         else
         {
             RenderApprovedText(result, options);
+        }
+    }
+
+    /// <summary>
+    /// Renders completed pull requests result
+    /// </summary>
+    public void RenderCompletedPullRequests(CompletedPullRequestResult result, PullRequestRenderingOptions options)
+    {
+        if (options.Format == Format.Json)
+        {
+            RenderCompletedJson(result);
+        }
+        else
+        {
+            RenderCompletedText(result, options);
         }
     }
 
@@ -128,6 +146,50 @@ public partial class PullRequestRenderingService
 #endif
     }
 
+    private void RenderCompletedJson(CompletedPullRequestResult result)
+    {
+        var jsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        
+        var json = JsonSerializer.Serialize(new
+        {
+            Type = "CompletedPullRequests",
+            User = result.CurrentUserDisplayName,
+            Statistics = result.Statistics,
+            PullRequests = result.CompletedPullRequests
+        }, jsonOptions);
+        
+        Console.WriteLine(json);
+    }
+
+    private void RenderCompletedText(CompletedPullRequestResult result, PullRequestRenderingOptions options)
+    {
+        Console.WriteLine("gapir (Graph API Review) - Completed Pull Requests (Last 30 Days)");
+        Console.WriteLine("===================================================================");
+        Console.WriteLine();
+
+        var completedPRs = result.CompletedPullRequests.ToList();
+        
+        Console.WriteLine($"✅ {completedPRs.Count} completed PR(s) where {result.CurrentUserDisplayName} was reviewer (last 30 days):");
+        
+        if (completedPRs.Any())
+        {
+            RenderCompletedPRsTable(completedPRs, options);
+        }
+        else
+        {
+            Console.WriteLine("No completed pull requests found in the last 30 days.");
+        }
+
+#if ENABLE_STATISTICS
+        // Show statistics
+        RenderStatistics(result.Statistics);
+#endif
+    }
+
 #if ENABLE_STATISTICS
     private void RenderStatistics(PullRequestStatistics stats)
     {
@@ -142,6 +204,11 @@ public partial class PullRequestRenderingService
     private void RenderApprovedPRsTable(List<PullRequestInfo> approvedPRs, PullRequestRenderingOptions options)
     {
         DisplayApprovedPullRequestsTable(approvedPRs, options.ShowDetailedTiming);
+    }
+
+    private void RenderCompletedPRsTable(List<PullRequestInfo> completedPRs, PullRequestRenderingOptions options)
+    {
+        DisplayCompletedPullRequestsTable(completedPRs, options.ShowDetailedTiming);
     }
 
     private void RenderPendingPRsTable(List<PullRequestInfo> pendingPRs, PullRequestRenderingOptions options)
@@ -183,7 +250,7 @@ public partial class PullRequestRenderingService
         {
             var pr = info.PullRequest;
             var reason = info.PendingReason;
-            var clickableTitle = TerminalLinkService.CreatePullRequestLink(info.PullRequestId, ShortenTitle(pr.Title));
+            var clickableTitle = _terminalLinkService.CreatePullRequestLink(info.PullRequestId, ShortenTitle(pr.Title));
 
             if (showDetailedTiming)
             {
@@ -217,7 +284,7 @@ public partial class PullRequestRenderingService
         foreach (var info in pullRequestInfos)
         {
             var pr = info.PullRequest;
-            var clickableTitle = TerminalLinkService.CreatePullRequestLink(info.PullRequestId, ShortenTitle(pr.Title));
+            var clickableTitle = _terminalLinkService.CreatePullRequestLink(info.PullRequestId, ShortenTitle(pr.Title));
 
             rows.Add(new string[]
             {
@@ -231,6 +298,69 @@ public partial class PullRequestRenderingService
         }
 
         PrintTable(headers, rows, maxWidths);
+    }
+
+    /// <summary>
+    /// Displays completed PRs with completion info and user's vote
+    /// </summary>
+    private void DisplayCompletedPullRequestsTable(List<PullRequestInfo> pullRequestInfos, bool showDetailedTiming)
+    {
+        if (!pullRequestInfos.Any())
+        {
+            return;
+        }
+
+        Console.WriteLine("Completed pull requests where you were a reviewer:");
+        Console.WriteLine("Vote Status: Approved=10, Approved w/ Suggestions=5, Waiting for Author=Reject, No Response=0");
+
+        // Prepare table data
+        string[] headers;
+        int[] maxWidths;
+
+        if (showDetailedTiming)
+        {
+            headers = new[] { "Author", "Title", "Vote", "Status", "Closed" };
+            maxWidths = new[] { 20, 50, 8, 12, 15 };
+        }
+        else
+        {
+            headers = new[] { "Author", "Title", "Vote", "Status" };
+            maxWidths = new[] { 25, 60, 10, 15 };
+        }
+
+        var rows = new List<string[]>();
+        foreach (var info in pullRequestInfos)
+        {
+            var pr = info.PullRequest;
+            var clickableTitle = _terminalLinkService.CreatePullRequestLink(info.PullRequestId, ShortenTitle(pr.Title));
+            var voteStatus = GetVoteDisplayText(info.MyVoteStatus);
+            var status = pr.Status.ToString();
+            
+            if (showDetailedTiming)
+            {
+                var closedDate = pr.ClosedDate.ToString("MM/dd HH:mm");
+                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, voteStatus, status, closedDate });
+            }
+            else
+            {
+                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, voteStatus, status });
+            }
+        }
+
+        PrintTable(headers, rows, maxWidths);
+    }
+
+    private static string GetVoteDisplayText(string voteStatus)
+    {
+        return voteStatus switch
+        {
+            "10" => "✅ Approved",
+            "5" => "✅ ApproveS",  // Approved with suggestions
+            "Reject" => "❌ Reject",
+            "0" => "⏸️ NoVote",
+            "---" => "➖ NotReq",  // Not required
+            _ => voteStatus
+        };
     }
 
     private static void PrintTable(string[] headers, IReadOnlyCollection<string[]> rows, int[] maxWidths)

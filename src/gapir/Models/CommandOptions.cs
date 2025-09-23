@@ -20,6 +20,13 @@ public record ApprovedOptions(
     bool ShowDetailedInfo);
 
 /// <summary>
+/// Options specific to the completed command
+/// </summary>
+public record CompletedOptions(
+    bool DetailedTiming, 
+    bool ShowDetailedInfo);
+
+/// <summary>
 /// Options specific to the diagnose command
 /// </summary>
 public record DiagnoseOptions(int PullRequestId);

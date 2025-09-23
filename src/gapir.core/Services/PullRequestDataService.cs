@@ -9,10 +9,12 @@ public class PullRequestDataService
     // Store API reviewers group members to avoid repeated API calls
     private HashSet<string>? _apiReviewersMembers;
     private readonly ApiReviewersGroupService _groupService;
+    private readonly AzureDevOpsConfiguration _adoConfig;
 
-    public PullRequestDataService(ApiReviewersGroupService groupService)
+    public PullRequestDataService(ApiReviewersGroupService groupService, AzureDevOpsConfiguration adoConfig)
     {
         _groupService = groupService;
+        _adoConfig = adoConfig;
     }
 
     public async Task<GapirResult> GetPullRequestDataAsync(VssConnection connection)    
@@ -26,7 +28,7 @@ public class PullRequestDataService
         {
             // Get repository information first
             var gitClient = connection.GetClient<GitHttpClient>();
-            var repository = await gitClient.GetRepositoryAsync(AdoConfig.ProjectName, AdoConfig.RepositoryName);
+            var repository = await gitClient.GetRepositoryAsync(_adoConfig.ProjectName, _adoConfig.RepositoryName);
 
             var (currentUserId, currentUserDisplayName) = GetCurrentUserInfo(connection);
             Log.Information($"Checking pull requests for user: {currentUserDisplayName}");

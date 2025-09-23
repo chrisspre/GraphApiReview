@@ -3,14 +3,17 @@ namespace gapir.Services;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Identity;
 using Microsoft.VisualStudio.Services.Identity.Client;
+using gapir.Models;
 
 public class ApiReviewersGroupService
 {
     private readonly ReviewersConfigurationService _reviewersConfig;
+    private readonly AzureDevOpsConfiguration _adoConfig;
 
-    public ApiReviewersGroupService(ReviewersConfigurationService reviewersConfig)
+    public ApiReviewersGroupService(ReviewersConfigurationService reviewersConfig, AzureDevOpsConfiguration adoConfig)
     {
         _reviewersConfig = reviewersConfig;
+        _adoConfig = adoConfig;
     }
 
     public async Task<HashSet<string>> GetGroupMembersAsync(VssConnection connection)
@@ -21,16 +24,16 @@ public class ApiReviewersGroupService
         {
             var identityClient = connection.GetClient<IdentityHttpClient>();
 
-            Log.Information($"Fetching API reviewers group: {AdoConfig.ReviewersGroupName}");
+            Log.Information($"Fetching API reviewers group: {_adoConfig.ReviewersGroupName}");
 
             // Step 1: Find the group by exact name
             var searchResults = await identityClient.ReadIdentitiesAsync(
                 IdentitySearchFilter.General,
-                AdoConfig.ReviewersGroupName,
+                _adoConfig.ReviewersGroupName,
                 queryMembership: QueryMembership.None);
 
             var apiGroup = searchResults?.FirstOrDefault(i =>
-                i.DisplayName?.Equals(AdoConfig.ReviewersGroupName, StringComparison.OrdinalIgnoreCase) == true);
+                i.DisplayName?.Equals(_adoConfig.ReviewersGroupName, StringComparison.OrdinalIgnoreCase) == true);
 
             if (apiGroup != null)
             {
@@ -43,7 +46,7 @@ public class ApiReviewersGroupService
             }
             else
             {
-                Log.Warning($"Group '{AdoConfig.ReviewersGroupName}' not found");
+                Log.Warning($"Group '{_adoConfig.ReviewersGroupName}' not found");
                 groupMembers = new HashSet<string>();
             }
 
