@@ -311,7 +311,7 @@ public partial class PullRequestRenderingService
         }
 
         Console.WriteLine("Completed pull requests where you were a reviewer:");
-        Console.WriteLine("Vote Status: Approved=10, Approved w/ Suggestions=5, Waiting for Author=Reject, No Response=0");
+        Console.WriteLine("Vote Status: Approved=10, ApproveS=5, Reject=Rejected, NoVote=0, NotReq=Not Required");
 
         // Prepare table data
         string[] headers;
@@ -354,11 +354,11 @@ public partial class PullRequestRenderingService
     {
         return voteStatus switch
         {
-            "10" => "✅ Approved",
-            "5" => "✅ ApproveS",  // Approved with suggestions
-            "Reject" => "❌ Reject",
-            "0" => "⏸️ NoVote",
-            "---" => "➖ NotReq",  // Not required
+            "10" => "Approved",
+            "5" => "ApproveS",  // Approved with suggestions
+            "Reject" => "Reject",
+            "0" => "NoVote",
+            "---" => "NotReq",  // Not required
             _ => voteStatus
         };
     }
