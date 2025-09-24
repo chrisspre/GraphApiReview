@@ -319,13 +319,13 @@ public partial class PullRequestRenderingService
 
         if (showDetailedTiming)
         {
-            headers = new[] { "Author", "Title", "Vote", "Status", "Closed" };
-            maxWidths = new[] { 20, 50, 8, 12, 15 };
+            headers = new[] { "Author", "Title", "Vote", "Created", "Completed" };
+            maxWidths = new[] { 20, 45, 8, 12, 12 };
         }
         else
         {
-            headers = new[] { "Author", "Title", "Vote", "Status" };
-            maxWidths = new[] { 25, 60, 10, 15 };
+            headers = new[] { "Author", "Title", "Vote", "Completed" };
+            maxWidths = new[] { 25, 55, 10, 12 };
         }
 
         var rows = new List<string[]>();
@@ -334,16 +334,16 @@ public partial class PullRequestRenderingService
             var pr = info.PullRequest;
             var clickableTitle = _terminalLinkService.CreatePullRequestLink(info.PullRequestId, ShortenTitle(pr.Title));
             var voteStatus = GetVoteDisplayText(info.MyVoteStatus);
-            var status = pr.Status.ToString();
+            var completedDate = pr.ClosedDate.ToString("MM/dd HH:mm");
             
             if (showDetailedTiming)
             {
-                var closedDate = pr.ClosedDate.ToString("MM/dd HH:mm");
-                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, voteStatus, status, closedDate });
+                var createdDate = pr.CreationDate.ToString("MM/dd HH:mm");
+                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, voteStatus, createdDate, completedDate });
             }
             else
             {
-                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, voteStatus, status });
+                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, voteStatus, completedDate });
             }
         }
 
