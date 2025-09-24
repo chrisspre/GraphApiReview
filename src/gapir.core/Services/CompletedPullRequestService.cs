@@ -18,11 +18,11 @@ public class CompletedPullRequestService
     }
 
     /// <summary>
-    /// Gets all pull requests completed in the last 30 days where the current user was a reviewer
+    /// Gets all pull requests completed in the last N days where the current user was a reviewer
     /// </summary>
-    public async Task<CompletedPullRequestResult> GetCompletedPullRequestsAsync(VssConnection connection)
+    public async Task<CompletedPullRequestResult> GetCompletedPullRequestsAsync(VssConnection connection, int daysBack = 30)
     {
-        var analysisResult = await _dataLoader.LoadCompletedPullRequestsAsync(connection);
+        var analysisResult = await _dataLoader.LoadCompletedPullRequestsAsync(connection, daysBack);
         var completedPRs = _analyzer.FilterCompletedPullRequests(analysisResult.AllPullRequests);
         var statistics = _analyzer.GetStatistics(analysisResult.AllPullRequests);
 
@@ -30,7 +30,8 @@ public class CompletedPullRequestService
         {
             CompletedPullRequests = completedPRs,
             Statistics = statistics,
-            CurrentUserDisplayName = analysisResult.CurrentUserDisplayName
+            CurrentUserDisplayName = analysisResult.CurrentUserDisplayName,
+            DaysBack = daysBack
         };
     }
 }
@@ -43,4 +44,5 @@ public class CompletedPullRequestResult
     public IEnumerable<PullRequestInfo> CompletedPullRequests { get; set; } = Enumerable.Empty<PullRequestInfo>();
     public PullRequestStatistics Statistics { get; set; } = new();
     public string CurrentUserDisplayName { get; set; } = string.Empty;
+    public int DaysBack { get; set; } = 30;
 }

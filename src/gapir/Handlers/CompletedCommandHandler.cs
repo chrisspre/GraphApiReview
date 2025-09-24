@@ -41,7 +41,7 @@ public class CompletedCommandHandler
 
         try
         {
-            var result = await _pullRequestService.GetCompletedPullRequestsAsync(connection);
+            var result = await _pullRequestService.GetCompletedPullRequestsAsync(connection, options.DaysBack);
             
             var renderingOptions = new PullRequestRenderingOptions
             {

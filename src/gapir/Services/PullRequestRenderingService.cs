@@ -1,6 +1,8 @@
 namespace gapir.Services;
 
+using gapir.Extensions;
 using gapir.Models;
+using gapir.Services;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -167,13 +169,13 @@ public partial class PullRequestRenderingService
 
     private void RenderCompletedText(CompletedPullRequestResult result, PullRequestRenderingOptions options)
     {
-        Console.WriteLine("gapir (Graph API Review) - Completed Pull Requests (Last 30 Days)");
+        Console.WriteLine($"gapir (Graph API Review) - Completed Pull Requests (Last {result.DaysBack} Days)");
         Console.WriteLine("===================================================================");
         Console.WriteLine();
 
         var completedPRs = result.CompletedPullRequests.ToList();
         
-        Console.WriteLine($"✅ {completedPRs.Count} completed PR(s) where {result.CurrentUserDisplayName} was reviewer (last 30 days):");
+        Console.WriteLine($"✅ {completedPRs.Count} completed PR(s) where {result.CurrentUserDisplayName} was reviewer (last {result.DaysBack} days):");
         
         if (completedPRs.Any())
         {
@@ -181,7 +183,7 @@ public partial class PullRequestRenderingService
         }
         else
         {
-            Console.WriteLine("No completed pull requests found in the last 30 days.");
+            Console.WriteLine($"No completed pull requests found in the last {result.DaysBack} days.");
         }
 
 #if ENABLE_STATISTICS
@@ -311,7 +313,6 @@ public partial class PullRequestRenderingService
         }
 
         Console.WriteLine("Completed pull requests where you were a reviewer:");
-        Console.WriteLine("Vote Status: Approved=10, ApproveS=5, Reject=Rejected, NoVote=0, NotReq=Not Required");
 
         // Prepare table data
         string[] headers;
@@ -319,7 +320,7 @@ public partial class PullRequestRenderingService
 
         if (showDetailedTiming)
         {
-            headers = new[] { "Author", "Title", "Vote", "Created", "Completed" };
+            headers = new[] { "Author", "Title", "Vote", "Assigned", "Completed" };
             maxWidths = new[] { 20, 45, 8, 12, 12 };
         }
         else
@@ -334,12 +335,12 @@ public partial class PullRequestRenderingService
             var pr = info.PullRequest;
             var clickableTitle = _terminalLinkService.CreatePullRequestLink(info.PullRequestId, ShortenTitle(pr.Title));
             var voteStatus = GetVoteDisplayText(info.MyVoteStatus);
-            var completedDate = pr.ClosedDate.ToString("MM/dd HH:mm");
+            var completedDate = pr.ClosedDate.FormatRelativeTime();
             
             if (showDetailedTiming)
             {
-                var createdDate = pr.CreationDate.ToString("MM/dd HH:mm");
-                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, voteStatus, createdDate, completedDate });
+                var assignedDate = pr.CreationDate.FormatRelativeTime();
+                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, voteStatus, assignedDate, completedDate });
             }
             else
             {
@@ -362,6 +363,8 @@ public partial class PullRequestRenderingService
             _ => voteStatus
         };
     }
+
+
 
     private static void PrintTable(string[] headers, IReadOnlyCollection<string[]> rows, int[] maxWidths)
     {

@@ -1,5 +1,6 @@
 namespace gapir.Services;
 
+using gapir.Extensions;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using gapir.Models;
 
@@ -132,10 +133,9 @@ public class PullRequestAnalysisService
             // Azure DevOps API doesn't directly provide reviewer assignment timestamps in the basic PR data
             // To get exact assignment times, we would need to query the pull request timeline/updates API
             var timeSinceCreation = DateTime.UtcNow - pr.CreationDate;
-            var formattedTime = FormatTimeDifference(timeSinceCreation);
             
-            // Show time since PR creation in concise format to fit in the Age column (max width 10 chars)
-            return $"{formattedTime} ago";
+            // Show time since PR creation using consistent relative formatting
+            return DateTimeExtensions.FormatTimeSpan(timeSinceCreation);
         }
         catch
         {
@@ -321,15 +321,4 @@ public class PullRequestAnalysisService
         }
     }
 
-    private static string FormatTimeDifference(TimeSpan timeDiff)
-    {
-        if (timeDiff.TotalDays >= 1)
-            return $"{(int)timeDiff.TotalDays}d";
-        else if (timeDiff.TotalHours >= 1)
-            return $"{(int)timeDiff.TotalHours}h";
-        else if (timeDiff.TotalMinutes >= 1)
-            return $"{(int)timeDiff.TotalMinutes}m";
-        else
-            return "< 1m";
-    }
 }

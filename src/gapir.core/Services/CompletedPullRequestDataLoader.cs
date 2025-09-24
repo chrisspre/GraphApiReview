@@ -20,9 +20,9 @@ public class CompletedPullRequestDataLoader
     }
 
     /// <summary>
-    /// Loads completed pull requests from the last 30 days where the current user was a reviewer
+    /// Loads completed pull requests from the last N days where the current user was a reviewer
     /// </summary>
-    public async Task<PullRequestAnalysisResult> LoadCompletedPullRequestsAsync(VssConnection connection)
+    public async Task<PullRequestAnalysisResult> LoadCompletedPullRequestsAsync(VssConnection connection, int daysBack = 30)
     {
         try
         {
@@ -43,9 +43,9 @@ public class CompletedPullRequestDataLoader
                 currentUserId,
                 currentUserDisplayName);
 
-            // Get completed pull requests from the last 30 days where current user was a reviewer
-            Log.Information("Fetching completed pull requests from last 30 days...");
-            var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+            // Get completed pull requests from the last N days where current user was a reviewer
+            Log.Information($"Fetching completed pull requests from last {daysBack} days...");
+            var cutoffDate = DateTime.UtcNow.AddDays(-daysBack);
             
             var searchCriteria = new GitPullRequestSearchCriteria()
             {
@@ -55,12 +55,12 @@ public class CompletedPullRequestDataLoader
 
             List<GitPullRequest> pullRequests = await gitClient.GetPullRequestsAsync(repository.Id, searchCriteria);
             
-            // Filter to only PRs completed in the last 30 days
+            // Filter to only PRs completed in the last N days
             var recentCompletedPRs = pullRequests
-                .Where(pr => pr.ClosedDate >= thirtyDaysAgo)
+                .Where(pr => pr.ClosedDate >= cutoffDate)
                 .ToList();
             
-            Log.Success($"Found {recentCompletedPRs.Count} completed pull requests from last 30 days");
+            Log.Success($"Found {recentCompletedPRs.Count} completed pull requests from last {daysBack} days");
 
             // Analyze all pull requests
             var pullRequestInfos = await analysisService.AnalyzePullRequestsAsync(

@@ -199,12 +199,12 @@ public class Program
 
     private static void AddCompletedCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
     {
-        var completedCommand = new Command("completed", "Show table of completed PRs from last 30 days where you were reviewer");
+        var completedCommand = new Command("completed", "Show table of completed PRs from last N days where you were reviewer (default: 30 days)");
 
         // Completed specific options
         var detailedTimingOption = new Option<bool>("--detailed-timing", "-t")
         {
-            Description = "Show detailed timing information including closure dates"
+            Description = "Show detailed timing information including assignment and closure dates"
         };
 
         var showDetailedInfoOption = new Option<bool>("--show-detailed-info", "-d")
@@ -212,8 +212,15 @@ public class Program
             Description = "Show detailed information section for each completed PR"
         };
 
+        var daysBackOption = new Option<int>("--days-back", "-b")
+        {
+            Description = "Number of days to look back for completed PRs (default: 30, max: 90)",
+            DefaultValueFactory = _ => 30
+        };
+
         completedCommand.Options.Add(detailedTimingOption);
         completedCommand.Options.Add(showDetailedInfoOption);
+        completedCommand.Options.Add(daysBackOption);
 
         completedCommand.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -222,8 +229,17 @@ public class Program
             var format = parseResult.GetValue(formatOption);
             var detailedTiming = parseResult.GetValue(detailedTimingOption);
             var showDetailedInfo = parseResult.GetValue(showDetailedInfoOption);
+            var daysBack = parseResult.GetValue(daysBackOption);
+            
+            // Validate days back parameter
+            if (daysBack < 1 || daysBack > 90)
+            {
+                Console.WriteLine("❌ Days back must be between 1 and 90.");
+                return 1;
+            }
+            
             var globalOptions = new GlobalOptions(verbose, format);
-            var completedOptions = new CompletedOptions(detailedTiming, showDetailedInfo);
+            var completedOptions = new CompletedOptions(detailedTiming, showDetailedInfo, daysBack);
             await handler.HandleAsync(completedOptions, globalOptions);
             return 0;
         });

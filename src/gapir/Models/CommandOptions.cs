@@ -24,7 +24,8 @@ public record ApprovedOptions(
 /// </summary>
 public record CompletedOptions(
     bool DetailedTiming, 
-    bool ShowDetailedInfo);
+    bool ShowDetailedInfo,
+    int DaysBack = 30);
 
 /// <summary>
 /// Options specific to the diagnose command
