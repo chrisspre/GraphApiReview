@@ -20,10 +20,10 @@ public class ConsoleLogger
 
         public LogLevelPrefixes(bool useEmoji)
         {
-            Information = useEmoji ? "ℹ️ " : "";
-            Warning = useEmoji ? "⚠️ " : "";
-            Error = useEmoji ? "❌ " : "";
-            Success = useEmoji ? "✅ " : "";
+            Information = useEmoji ? "ℹ️ " : "[INFO] ";
+            Warning = useEmoji ? "⚠️ " : "[WARN] ";
+            Error = useEmoji ? "❌ " : "[ERROR] ";
+            Success = useEmoji ? "✅ " : "[SUCCESS] ";
             Debug = useEmoji ? "🔍 " : "[DEBUG] ";
         }
     }
