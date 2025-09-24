@@ -238,13 +238,13 @@ public partial class PullRequestRenderingService
 
         if (showDetailedTiming)
         {
-            headers = new[] { "Author", "Title", "Why", "Reviewers" };
-            maxWidths = new[] { 20, 65, 8, 25 }; // Increased title column for 120 char table width
+            headers = new[] { "Title", "Author", "Why", "Reviewers" };
+            maxWidths = new[] { 65, 20, 8, 25 }; // Increased title column for 120 char table width
         }
         else
         {
-            headers = new[] { "Author", "Title", "Why" };
-            maxWidths = new[] { 25, 75, 8 }; // Increased title column for 120 char table width
+            headers = new[] { "Title", "Author", "Why" };
+            maxWidths = new[] { 75, 25, 8 }; // Increased title column for 120 char table width
         }
 
         var rows = new List<string[]>();
@@ -256,11 +256,11 @@ public partial class PullRequestRenderingService
 
             if (showDetailedTiming)
             {
-                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, reason, info.TimeAssigned });
+                rows.Add(new string[] { clickableTitle, pr.CreatedBy.DisplayName, reason, info.TimeAssigned });
             }
             else
             {
-                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, reason });
+                rows.Add(new string[] { clickableTitle, pr.CreatedBy.DisplayName, reason });
             }
         }
 
@@ -279,8 +279,8 @@ public partial class PullRequestRenderingService
         }
 
         // Prepare table data for pending PRs (no URL column)
-        var headers = new[] { "Title", "Status", "Author", "Age", "Ratio", "Change" };
-        var maxWidths = new[] { 55, 6, 18, 10, 6, 20 }; // Increased title column for 120 char table width
+        var headers = new[] { "Title", "Author", "Status", "Age", "Ratio", "Change" };
+        var maxWidths = new[] { 45, 18, 6, 10, 6, 20 }; // Adjusted widths to fit 120 char table width
 
         var rows = new List<string[]>();
         foreach (var info in pullRequestInfos)
@@ -291,8 +291,8 @@ public partial class PullRequestRenderingService
             rows.Add(new string[]
             {
                 clickableTitle,
-                info.MyVoteStatus,
                 pr.CreatedBy.DisplayName,
+                info.MyVoteStatus,
                 info.TimeAssigned,
                 info.ApiApprovalRatio,
                 info.LastChangeInfo
@@ -320,13 +320,13 @@ public partial class PullRequestRenderingService
 
         if (showDetailedTiming)
         {
-            headers = new[] { "Author", "Title", "Vote", "Assigned", "Completed" };
-            maxWidths = new[] { 20, 45, 8, 12, 12 };
+            headers = new[] { "Title", "Author", "Vote", "Assigned", "Completed" };
+            maxWidths = new[] { 45, 20, 8, 12, 12 };
         }
         else
         {
-            headers = new[] { "Author", "Title", "Vote", "Completed" };
-            maxWidths = new[] { 25, 55, 10, 12 };
+            headers = new[] { "Title", "Author", "Vote", "Completed" };
+            maxWidths = new[] { 55, 25, 10, 12 };
         }
 
         var rows = new List<string[]>();
@@ -340,11 +340,11 @@ public partial class PullRequestRenderingService
             if (showDetailedTiming)
             {
                 var assignedDate = pr.CreationDate.FormatRelativeTime();
-                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, voteStatus, assignedDate, completedDate });
+                rows.Add(new string[] { clickableTitle, pr.CreatedBy.DisplayName, voteStatus, assignedDate, completedDate });
             }
             else
             {
-                rows.Add(new string[] { pr.CreatedBy.DisplayName, clickableTitle, voteStatus, completedDate });
+                rows.Add(new string[] { clickableTitle, pr.CreatedBy.DisplayName, voteStatus, completedDate });
             }
         }
 
