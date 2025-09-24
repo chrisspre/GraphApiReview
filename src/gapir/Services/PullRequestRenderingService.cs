@@ -280,7 +280,7 @@ public partial class PullRequestRenderingService
 
         // Prepare table data for pending PRs (no URL column)
         var headers = new[] { "Title", "Author", "Status", "Age", "Ratio", "Change" };
-        var maxWidths = new[] { 45, 18, 6, 10, 6, 20 }; // Adjusted widths to fit 120 char table width
+        var maxWidths = new[] { 35, 15, 6, 10, 6, 32 }; // Further increased Change column to accommodate "Reviewer: Waiting for Author"
 
         var rows = new List<string[]>();
         foreach (var info in pullRequestInfos)
