@@ -195,20 +195,6 @@ public class PullRequestAnalysisService
         }
     }
 
-    // private string GetShortUrl(GitPullRequest pr)
-    // {
-    //     if (_useShortUrls)
-    //     {
-    //         // Use Base62 encoding for shorter URLs
-    //         string base62Id = Base62.Encode(pr.PullRequestId);
-    //         return $"http://g/pr/{base62Id}";
-    //     }
-    //     else
-    //     {
-    //         return GetFullUrl(pr);
-    //     }
-    // }
-
     private async Task<string> GetLastChangeInfoAsync(GitHttpClient gitClient, Guid repositoryId, GitPullRequest pr)
     {
         try
