@@ -239,12 +239,12 @@ public partial class PullRequestRenderingService
         if (showDetailedTiming)
         {
             headers = new[] { "Title", "Author", "Why", "Reviewers" };
-            maxWidths = new[] { 65, 20, 8, 25 }; // Increased title column for 120 char table width
+            maxWidths = new[] { 50, 20, 8, 25 }; // Standardized Title=50, Author=20 for consistency
         }
         else
         {
             headers = new[] { "Title", "Author", "Why" };
-            maxWidths = new[] { 75, 25, 8 }; // Increased title column for 120 char table width
+            maxWidths = new[] { 50, 20, 8 }; // Standardized Title=50, Author=20 for consistency
         }
 
         var rows = new List<string[]>();
@@ -280,7 +280,7 @@ public partial class PullRequestRenderingService
 
         // Prepare table data for pending PRs (no URL column)
         var headers = new[] { "Title", "Author", "Status", "Age", "Ratio", "Change" };
-        var maxWidths = new[] { 35, 15, 6, 10, 6, 32 }; // Further increased Change column to accommodate "Reviewer: Waiting for Author"
+        var maxWidths = new[] { 50, 20, 6, 10, 6, 27 }; // Standardized Title=50, Author=20 for consistency across tables
 
         var rows = new List<string[]>();
         foreach (var info in pullRequestInfos)
@@ -321,12 +321,12 @@ public partial class PullRequestRenderingService
         if (showDetailedTiming)
         {
             headers = new[] { "Title", "Author", "Vote", "Assigned", "Completed" };
-            maxWidths = new[] { 45, 20, 8, 12, 12 };
+            maxWidths = new[] { 50, 20, 8, 12, 12 };
         }
         else
         {
             headers = new[] { "Title", "Author", "Vote", "Completed" };
-            maxWidths = new[] { 55, 25, 10, 12 };
+            maxWidths = new[] { 50, 20, 10, 12 };
         }
 
         var rows = new List<string[]>();
