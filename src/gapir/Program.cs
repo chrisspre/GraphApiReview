@@ -117,11 +117,11 @@ public class Program
 
         // Create subcommands
         AddReviewCommand(rootCommand, verboseOption, formatOption, detailedTimingOption, showDetailedInfoOption, services);
-        AddCollectCommand(rootCommand, verboseOption, formatOption, services);
-        AddDiagnoseCommand(rootCommand, verboseOption, formatOption, services);
-        AddShowApprovedCommand(rootCommand, verboseOption, formatOption, services);
+        AddApprovedCommand(rootCommand, verboseOption, formatOption, services);
         AddCompletedCommand(rootCommand, verboseOption, formatOption, services);
         AddPreferencesCommand(rootCommand, verboseOption, formatOption, services);
+        AddDiagnoseCommand(rootCommand, verboseOption, formatOption, services);
+        AddCollectCommand(rootCommand, verboseOption, formatOption, services);
 
         // This is also the default command
         rootCommand.SetAction(async (parseResult, cancellationToken) =>
@@ -163,7 +163,7 @@ public class Program
         rootCommand.Subcommands.Add(reviewCommand);
     }
 
-    private static void AddShowApprovedCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
+    private static void AddApprovedCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
     {
         var showApprovedCommand = new Command("approved", "Show table of already approved PRs");
 
@@ -302,6 +302,7 @@ public class Program
     private static void AddPreferencesCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
     {
         var preferencesCommand = new Command("preferences", "Manage Reviewer Assignment preferences");
+        preferencesCommand.Options.Add(verboseOption);
 
         // Create get subcommand
         var getCommand = new Command("get", "Get current Reviewer Assignment preferences");
@@ -318,10 +319,11 @@ public class Program
 
         getCommand.Options.Add(getFormatOption);
         getCommand.Options.Add(showAllOption);
+        getCommand.Options.Add(verboseOption);
         getCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var handler = services.GetRequiredService<PreferencesCommandHandler>();
-            var format = parseResult.GetValue(getFormatOption);
+            var format = parseResult.GetValue(getFormatOption) ?? "table";
             var showAll = parseResult.GetValue(showAllOption);
             var verbose = parseResult.GetValue(verboseOption);
             var result = await handler.HandleGetPreferencesAsync(format, verbose, showAll);
@@ -336,12 +338,23 @@ public class Program
         };
 
         setCommand.Options.Add(timeAllocationOption);
+        setCommand.Options.Add(verboseOption);
         setCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var handler = services.GetRequiredService<PreferencesCommandHandler>();
             var timeAllocation = parseResult.GetValue(timeAllocationOption);
             var verbose = parseResult.GetValue(verboseOption);
             var result = await handler.HandleSetTimeAllocationAsync(timeAllocation, verbose);
+            Environment.Exit(result);
+        });
+
+        // Set default action for preferences command to behave like 'get'
+        preferencesCommand.SetAction(async (parseResult, cancellationToken) =>
+        {
+            var handler = services.GetRequiredService<PreferencesCommandHandler>();
+            var verbose = parseResult.GetValue(verboseOption);
+            // Default to table format and show only time allocation (like the get command defaults)
+            var result = await handler.HandleGetPreferencesAsync("table", verbose, false);
             Environment.Exit(result);
         });
 
