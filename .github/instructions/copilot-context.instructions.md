@@ -150,7 +150,7 @@ gapir diagnose 13300322  # Investigate specific PR's reviewer details from Azure
                               # Shows raw reviewer data including IsRequired, IsContainer, IsFlagged flags
                               # Useful for troubleshooting reviewer status issues
 
-gapir collect     # Generate ApiReviewersFallback.cs from recent PR data
+gapir collect     # Generate JSON reviewers configuration from recent PR data
 gapir --version              # Show tool version
 ```
 
