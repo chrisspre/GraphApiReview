@@ -1,8 +1,8 @@
 using gapir.Services;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
-using System.Text;
 using gapir.Models;
+using gapir.Extensions;
 
 namespace gapir;
 
@@ -93,20 +93,17 @@ public class ReviewerCollector
                             }
 
                             apiReviewPrsFound++;
-                            Console.WriteLine($"  API Review PR #{pr.PullRequestId}: {TruncateString(pr.Title, 50)}...");
+                            var names = string.Join(", ", detailedPr.Reviewers.Where(r => GetReviewerKey(r) is { } reviewerKey).Select(r => r.DisplayName.SubstringBefore(' ')));
+                            Console.WriteLine($"  API Review PR #{pr.PullRequestId}: {TruncateString(pr.Title, 50)}... {names}");
 
                             foreach (var reviewer in detailedPr.Reviewers)
                             {
-                                // // Consider a reviewer "required" if they are marked as required OR they provided approval/feedback
-                                // if (reviewer.IsRequired == true || reviewer.Vote > 0)
                                 if (reviewer.IsRequired == true)
                                 {
                                     // Only consider individual reviewers (exclude groups and tools)
                                     if (GetReviewerKey(reviewer) is { } reviewerKey)
                                     {
                                         var displayName = reviewer.DisplayName ?? reviewerKey ?? "Unknown";
-
-                                       
                                         
                                         if (reviewerCounts.TryGetValue(reviewerKey!, out var value))
                                         {
