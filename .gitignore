@@ -488,4 +488,8 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+
+
 TODO.md
+pr-*.json
