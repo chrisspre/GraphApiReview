@@ -52,21 +52,30 @@
       },
       "Microsoft.Identity.Client": {
         "type": "Direct",
-        "requested": "[4.77.0, )",
-        "resolved": "4.77.0",
-        "contentHash": "VV4ymvWZ140P7ehNsMLCOWsRYUwMOOFs0Uu6Y0wj1ItyLo0OsMdHh1x8pgisuHsNEEOzQdt2CNzrAwxqiL2wUA==",
+        "requested": "[4.77.1, )",
+        "resolved": "4.77.1",
+        "contentHash": "K1BS0wRwh48xjsU2y7bwVh8qE9eqdRkroHX0EPp9GGo3GmS+B2gaPd95jq+HRpyFj8h3nn8LubDnIti+M/9YoQ==",
         "dependencies": {
           "Microsoft.IdentityModel.Abstractions": "8.14.0"
         }
       },
       "Microsoft.Identity.Client.Broker": {
         "type": "Direct",
-        "requested": "[4.77.0, )",
-        "resolved": "4.77.0",
-        "contentHash": "9QHafFw38usFLYBJA0NwS7S8rJMHascdrJP/j1nEyxBseXd4XvE0NBrScp/WhLHADYlzRHsuzvVJWaf+T/hSQA==",
+        "requested": "[4.77.1, )",
+        "resolved": "4.77.1",
+        "contentHash": "oJ3BYoKppDE09EMfxQgEdqmD5+U0yorczSyk7Jg3rUNGOjds4CyrDNc72Xbj0+FFl6hct7Opdds5uJ1ofFDoCw==",
         "dependencies": {
-          "Microsoft.Identity.Client": "4.77.0",
+          "Microsoft.Identity.Client": "4.77.1",
           "Microsoft.Identity.Client.NativeInterop": "0.19.4"
+        }
+      },
+      "Microsoft.IdentityModel.JsonWebTokens": {
+        "type": "Direct",
+        "requested": "[8.6.1, )",
+        "resolved": "8.6.1",
+        "contentHash": "CAu9DWsPZVtnyE3bOJ83rlPWpahY37sP/0bIOdRlxS90W88zSI4V3FyoCDlXxV8+gloT+a247pwPXfSNjYyAxw==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Tokens": "8.6.1"
         }
       },
       "Microsoft.TeamFoundationServer.Client": {
@@ -113,6 +122,25 @@
         "requested": "[2.0.0-rc.1.25451.107, )",
         "resolved": "2.0.0-rc.1.25451.107",
         "contentHash": "j+0Yg2TZ5rwbGTRArdF9w993dGWCPRbD+lg3S0D6MLckrKQ3J70s52TlbxKlISsoXUP/X+e6uPocbkKjP3wSag=="
+      },
+      "System.Data.SqlClient": {
+        "type": "Direct",
+        "requested": "[4.8.6, )",
+        "resolved": "4.8.6",
+        "contentHash": "2Ij/LCaTQRyAi5lAv7UUTV9R2FobC8xN9mE0fXBZohum/xLl8IZVmE98Rq5ugQHjCgTBRKqpXRb4ORulRdA6Ig==",
+        "dependencies": {
+          "runtime.native.System.Data.SqlClient.sni": "4.7.0"
+        }
+      },
+      "System.IdentityModel.Tokens.Jwt": {
+        "type": "Direct",
+        "requested": "[8.6.1, )",
+        "resolved": "8.6.1",
+        "contentHash": "EXL1Tj+pizswtHHPiQyNumrTo8XOLX7SoTm7Bz00/DyiIoG2H/kQItoajSvr1MYtvDNXveqULsoWDoJFI3aHzQ==",
+        "dependencies": {
+          "Microsoft.IdentityModel.JsonWebTokens": "8.6.1",
+          "Microsoft.IdentityModel.Tokens": "8.6.1"
+        }
       },
       "System.Windows.Extensions": {
         "type": "Direct",
@@ -411,14 +439,6 @@
         "resolved": "8.14.0",
         "contentHash": "iwbCpSjD3ehfTwBhtSNEtKPK0ICun6ov7Ibx6ISNA9bfwIyzI2Siwyi9eJFCJBwxowK9xcA1mj+jBWiigeqgcQ=="
       },
-      "Microsoft.IdentityModel.JsonWebTokens": {
-        "type": "Transitive",
-        "resolved": "8.6.1",
-        "contentHash": "CAu9DWsPZVtnyE3bOJ83rlPWpahY37sP/0bIOdRlxS90W88zSI4V3FyoCDlXxV8+gloT+a247pwPXfSNjYyAxw==",
-        "dependencies": {
-          "Microsoft.IdentityModel.Tokens": "8.6.1"
-        }
-      },
       "Microsoft.IdentityModel.Logging": {
         "type": "Transitive",
         "resolved": "8.6.1",
@@ -608,27 +628,10 @@
           "System.Security.Permissions": "6.0.0"
         }
       },
-      "System.Data.SqlClient": {
-        "type": "Transitive",
-        "resolved": "4.8.5",
-        "contentHash": "fRqxut4lrndPHrXD+ht1XRmCL3obuKldm4XjCRYS9p5f7FSR7shBxAwTkDrpFMsHC9BhNgjjmUtiIjvehn5zkg==",
-        "dependencies": {
-          "runtime.native.System.Data.SqlClient.sni": "4.7.0"
-        }
-      },
       "System.Diagnostics.EventLog": {
         "type": "Transitive",
         "resolved": "9.0.9",
         "contentHash": "wpsUfnyv8E5K4WQaok6weewvAbQhcLwXFcHBm5U0gdEaBs85N//ssuYvRPFWwz2rO/9/DFP3A1sGMzUFBj8y3w=="
-      },
-      "System.IdentityModel.Tokens.Jwt": {
-        "type": "Transitive",
-        "resolved": "8.6.1",
-        "contentHash": "EXL1Tj+pizswtHHPiQyNumrTo8XOLX7SoTm7Bz00/DyiIoG2H/kQItoajSvr1MYtvDNXveqULsoWDoJFI3aHzQ==",
-        "dependencies": {
-          "Microsoft.IdentityModel.JsonWebTokens": "8.6.1",
-          "Microsoft.IdentityModel.Tokens": "8.6.1"
-        }
       },
       "System.Memory.Data": {
         "type": "Transitive",
@@ -656,11 +659,14 @@
       "gapir.core": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.Identity.Client": "[4.77.0, )",
-          "Microsoft.Identity.Client.Broker": "[4.77.0, )",
+          "Microsoft.Identity.Client": "[4.77.1, )",
+          "Microsoft.Identity.Client.Broker": "[4.77.1, )",
+          "Microsoft.IdentityModel.JsonWebTokens": "[8.6.1, )",
           "Microsoft.TeamFoundationServer.Client": "[19.225.1, )",
           "Microsoft.VisualStudio.Services.Client": "[19.225.1, )",
           "Microsoft.VisualStudio.Services.InteractiveClient": "[19.225.1, )",
+          "System.Data.SqlClient": "[4.8.6, )",
+          "System.IdentityModel.Tokens.Jwt": "[8.6.1, )",
           "System.Windows.Extensions": "[9.0.9, )"
         }
       }

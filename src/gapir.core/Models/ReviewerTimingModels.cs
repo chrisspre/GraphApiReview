@@ -131,3 +131,102 @@ public class PullRequestTimingInfo
             ? CompletedAt.Value - AllRequiredApprovedAt.Value
             : null;
 }
+
+/// <summary>
+/// Represents timing data extracted from PR threads for a specific reviewer
+/// </summary>
+public class ReviewerTimingData
+{
+    /// <summary>
+    /// Reviewer's display name
+    /// </summary>
+    public string ReviewerDisplayName { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// When the reviewer was assigned to the PR
+    /// </summary>
+    public DateTime? AssignedDateTime { get; set; }
+    
+    /// <summary>
+    /// When the reviewer voted on the PR
+    /// </summary>
+    public DateTime? VoteDateTime { get; set; }
+    
+    /// <summary>
+    /// When the PR was completed
+    /// </summary>
+    public DateTime? CompletedDateTime { get; set; }
+    
+    /// <summary>
+    /// The reviewer's vote text (e.g., "Approved", "Waiting for author")
+    /// </summary>
+    public string? Vote { get; set; }
+    
+    /// <summary>
+    /// Duration from assignment to approval (A2A)
+    /// </summary>
+    public TimeSpan? AssignmentToApprovalDuration =>
+        AssignedDateTime.HasValue && VoteDateTime.HasValue
+            ? VoteDateTime.Value - AssignedDateTime.Value
+            : null;
+    
+    /// <summary>
+    /// Duration from approval to completion (A2C)
+    /// </summary>
+    public TimeSpan? ApprovalToCompletionDuration =>
+        VoteDateTime.HasValue && CompletedDateTime.HasValue
+            ? CompletedDateTime.Value - VoteDateTime.Value
+            : null;
+}
+
+/// <summary>
+/// Represents a completed pull request with timing data
+/// </summary>
+public class CompletedPullRequestWithTiming
+{
+    /// <summary>
+    /// The pull request information
+    /// </summary>
+    public Microsoft.TeamFoundation.SourceControl.WebApi.GitPullRequest PullRequest { get; set; } = new();
+    
+    /// <summary>
+    /// The author of the pull request
+    /// </summary>
+    public string Author { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// The reviewer's vote on the pull request
+    /// </summary>
+    public string Vote { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// PR threads containing comments and timing data
+    /// </summary>
+    public List<Microsoft.TeamFoundation.SourceControl.WebApi.GitPullRequestCommentThread> Threads { get; set; } = new();
+    
+    /// <summary>
+    /// Extracted timing data for the reviewer
+    /// </summary>
+    public ReviewerTimingData TimingData { get; set; } = new();
+}
+
+/// <summary>
+/// Result containing completed pull requests with timing information
+/// </summary>
+public class CompletedPullRequestWithTimingResult
+{
+    /// <summary>
+    /// List of completed pull requests with timing data
+    /// </summary>
+    public List<CompletedPullRequestWithTiming> CompletedPullRequests { get; set; } = new();
+    
+    /// <summary>
+    /// Total count of pull requests
+    /// </summary>
+    public int TotalCount { get; set; }
+    
+    /// <summary>
+    /// Status message
+    /// </summary>
+    public string Message { get; set; } = string.Empty;
+}

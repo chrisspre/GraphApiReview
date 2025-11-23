@@ -2,7 +2,6 @@ namespace gapir.Services;
 
 using gapir.Extensions;
 using gapir.Models;
-using gapir.Services;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -203,17 +202,17 @@ public partial class PullRequestRenderingService
     }
 #endif
 
-    private void RenderApprovedPRsTable(List<PullRequestInfo> approvedPRs, PullRequestRenderingOptions options)
+    private void RenderApprovedPRsTable(List<gapir.Models.PullRequestInfo> approvedPRs, PullRequestRenderingOptions options)
     {
         DisplayApprovedPullRequestsTable(approvedPRs, options.ShowDetailedTiming);
     }
 
-    private void RenderCompletedPRsTable(List<PullRequestInfo> completedPRs, PullRequestRenderingOptions options)
+    private void RenderCompletedPRsTable(List<gapir.Models.PullRequestInfo> completedPRs, PullRequestRenderingOptions options)
     {
         DisplayCompletedPullRequestsTable(completedPRs, options.ShowDetailedTiming);
     }
 
-    private void RenderPendingPRsTable(List<PullRequestInfo> pendingPRs, PullRequestRenderingOptions options)
+    private void RenderPendingPRsTable(List<gapir.Models.PullRequestInfo> pendingPRs, PullRequestRenderingOptions options)
     {
         DisplayPullRequestsTable(pendingPRs);
     }
@@ -221,7 +220,7 @@ public partial class PullRequestRenderingService
     /// <summary>
     /// Displays approved PRs in a simpler format with clickable titles
     /// </summary>
-    private void DisplayApprovedPullRequestsTable(List<PullRequestInfo> pullRequestInfos, bool showDetailedTiming)
+    private void DisplayApprovedPullRequestsTable(List<gapir.Models.PullRequestInfo> pullRequestInfos, bool showDetailedTiming)
     {
         if (!pullRequestInfos.Any())
         {
@@ -270,7 +269,7 @@ public partial class PullRequestRenderingService
     /// <summary>
     /// Displays a formatted table of pull requests with clickable titles
     /// </summary>
-    private void DisplayPullRequestsTable(List<PullRequestInfo> pullRequestInfos)
+    private void DisplayPullRequestsTable(List<gapir.Models.PullRequestInfo> pullRequestInfos)
     {
         if (!pullRequestInfos.Any())
         {
@@ -305,7 +304,7 @@ public partial class PullRequestRenderingService
     /// <summary>
     /// Displays completed PRs with completion info and user's vote
     /// </summary>
-    private void DisplayCompletedPullRequestsTable(List<PullRequestInfo> pullRequestInfos, bool showDetailedTiming)
+    private void DisplayCompletedPullRequestsTable(List<gapir.Models.PullRequestInfo> pullRequestInfos, bool showDetailedTiming)
     {
         if (!pullRequestInfos.Any())
         {
