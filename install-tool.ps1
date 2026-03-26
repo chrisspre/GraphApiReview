@@ -91,8 +91,8 @@ try {
         
         Write-Host ""
         Write-Host "Usage examples:" -ForegroundColor Cyan
-        Write-Host "  gapir collect --help" -ForegroundColor Gray
-        Write-Host "  gapir diagnose --help" -ForegroundColor Gray
+        Write-Host "  gapir review --help" -ForegroundColor Gray
+        Write-Host "  gapir approved --help" -ForegroundColor Gray
     }
 }
 catch {
