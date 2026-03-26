@@ -40,6 +40,7 @@ public class Program
         
         // Core services from gapir.core
         services.AddSingleton<ConsoleAuth>();
+        services.AddSingleton<IAuthenticationService>(sp => sp.GetRequiredService<ConsoleAuth>());
         services.AddScoped<PullRequestDiagnosticService>();
         
         // Register services
@@ -112,11 +113,17 @@ public class Program
             Description = "Show detailed information section for each pending PR"
         };
 
+        var noVoteOnlyOption = new Option<bool>("--no-vote-only", "-n")
+        {
+            Description = "Only show PRs where your vote status is NoVote"
+        };
+
         rootCommand.Options.Add(detailedTimingOption);
         rootCommand.Options.Add(showDetailedInfoOption);
+        rootCommand.Options.Add(noVoteOnlyOption);
 
         // Create subcommands
-        AddReviewCommand(rootCommand, verboseOption, formatOption, detailedTimingOption, showDetailedInfoOption, services);
+        AddReviewCommand(rootCommand, verboseOption, formatOption, detailedTimingOption, showDetailedInfoOption, noVoteOnlyOption, services);
         AddApprovedCommand(rootCommand, verboseOption, formatOption, services);
         AddCompletedCommand(rootCommand, verboseOption, formatOption, services);
         AddPreferencesCommand(rootCommand, verboseOption, formatOption, services);
@@ -131,8 +138,9 @@ public class Program
             var format = parseResult.GetValue(formatOption);
             var detailedTiming = parseResult.GetValue(detailedTimingOption);
             var showDetailedInfo = parseResult.GetValue(showDetailedInfoOption);
+            var noVoteOnly = parseResult.GetValue(noVoteOnlyOption);
             var globalOptions = new GlobalOptions(verbose, format);
-            var reviewOptions = new ReviewOptions(detailedTiming, showDetailedInfo);
+            var reviewOptions = new ReviewOptions(detailedTiming, showDetailedInfo, noVoteOnly);
             await handler.HandleAsync(reviewOptions, globalOptions);
             return 0;
         });
@@ -140,12 +148,13 @@ public class Program
         return rootCommand;
     }
 
-    private static void AddReviewCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, Option<bool> detailedTimingOption, Option<bool> showDetailedInfoOption, IServiceProvider services)
+    private static void AddReviewCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, Option<bool> detailedTimingOption, Option<bool> showDetailedInfoOption, Option<bool> noVoteOnlyOption, IServiceProvider services)
     {
         var reviewCommand = new Command("review", "Show pull requests assigned to you for review (default command)");
 
         reviewCommand.Options.Add(detailedTimingOption);
         reviewCommand.Options.Add(showDetailedInfoOption);
+        reviewCommand.Options.Add(noVoteOnlyOption);
 
         reviewCommand.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -154,8 +163,9 @@ public class Program
             var format = parseResult.GetValue(formatOption);
             var detailedTiming = parseResult.GetValue(detailedTimingOption);
             var showDetailedInfo = parseResult.GetValue(showDetailedInfoOption);
+            var noVoteOnly = parseResult.GetValue(noVoteOnlyOption);
             var globalOptions = new GlobalOptions(verbose, format);
-            var reviewOptions = new ReviewOptions(detailedTiming, showDetailedInfo);
+            var reviewOptions = new ReviewOptions(detailedTiming, showDetailedInfo, noVoteOnly);
             await handler.HandleAsync(reviewOptions, globalOptions);
             return 0;
         });

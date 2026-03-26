@@ -42,6 +42,13 @@ public class ReviewCommandHandler
         try
         {
             var result = await _pullRequestService.GetPendingPullRequestsAsync(connection);
+
+            if (options.NoVoteOnly)
+            {
+                result.PendingPullRequests = result.PendingPullRequests
+                    .Where(pr => pr.MyVoteStatus == "NoVote")
+                    .ToList();
+            }
             
             var renderingOptions = new PullRequestRenderingOptions
             {
