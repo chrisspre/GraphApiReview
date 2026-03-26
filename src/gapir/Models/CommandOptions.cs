@@ -10,7 +10,8 @@ public record GlobalOptions(bool Verbose, Format Format);
 /// </summary>
 public record ReviewOptions(
     bool DetailedTiming, 
-    bool ShowDetailedInfo);
+    bool ShowDetailedInfo,
+    bool NoVoteOnly = false);
 
 /// <summary>
 /// Options specific to the approved command
