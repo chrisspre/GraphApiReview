@@ -9,13 +9,13 @@ namespace gapir.Handlers;
 public class CompletedCommandHandler
 {
     private readonly CompletedPullRequestService _pullRequestService;
-    private readonly PullRequestRenderingService _renderer;
+    private readonly RenderingService _renderer;
     private readonly ConnectionService _connectionService;
     private readonly ConsoleLogger _logger;
 
     public CompletedCommandHandler(
         CompletedPullRequestService pullRequestService,
-        PullRequestRenderingService renderer,
+        RenderingService renderer,
         ConnectionService connectionService,
         ConsoleLogger logger)
     {

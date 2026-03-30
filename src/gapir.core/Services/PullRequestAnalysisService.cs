@@ -39,12 +39,21 @@ public class PullRequestAnalysisService
             ApiApprovalRatio = GetApiApprovalRatio(pr),
             TimeAssigned = GetTimeAssignedToReviewer(pr),
             PendingReason = GetPendingReason(pr),
-            // ShortUrl = GetShortUrl(pr),
-            // FullUrl = GetFullUrl(pr)
         };
 
-        // Get last change info (requires async call)
-        info.LastChangeInfo = await GetLastChangeInfoAsync(gitClient, repositoryId, pr);
+        // Fetch threads once and reuse for multiple analyses
+        List<GitPullRequestCommentThread>? threads = null;
+        try
+        {
+            threads = await gitClient.GetThreadsAsync(repositoryId, pr.PullRequestId);
+        }
+        catch
+        {
+            // Thread fetch failures are non-fatal
+        }
+
+        info.LastChangeInfo = await GetLastChangeInfoAsync(gitClient, repositoryId, pr, threads);
+        ExtractReviewerTiming(info, threads);
 
         return info;
     }
@@ -196,7 +205,7 @@ public class PullRequestAnalysisService
         }
     }
 
-    private async Task<string> GetLastChangeInfoAsync(GitHttpClient gitClient, Guid repositoryId, GitPullRequest pr)
+    private async Task<string> GetLastChangeInfoAsync(GitHttpClient gitClient, Guid repositoryId, GitPullRequest pr, List<GitPullRequestCommentThread>? threads)
     {
         try
         {
@@ -207,7 +216,6 @@ public class PullRequestAnalysisService
             string changeType = "Created";
 
             // Check 1: PR threads/comments - look for different types of comments
-            var threads = await gitClient.GetThreadsAsync(repositoryId, pr.PullRequestId);
             if (threads?.Any() == true)
             {
                 var mostRecentComment = threads
@@ -326,6 +334,51 @@ public class PullRequestAnalysisService
         catch
         {
             return "Unknown";
+        }
+    }
+
+    /// <summary>
+    /// Extracts reviewer assignment and vote dates from system threads for the current user.
+    /// Looks for "ReviewersUpdate" threads mentioning the user (assignment) and "VoteUpdate" threads (vote).
+    /// </summary>
+    private void ExtractReviewerTiming(PullRequestInfo info, List<GitPullRequestCommentThread>? threads)
+    {
+        if (threads == null)
+        {
+            return;
+        }
+
+        var currentUserName = _currentUserDisplayName;
+
+        foreach (var thread in threads.OrderBy(t => t.PublishedDate))
+        {
+            var threadType = thread.Properties
+                ?.FirstOrDefault(p => p.Key == "CodeReviewThreadType").Value?.ToString();
+
+            if (threadType == null)
+            {
+                continue;
+            }
+
+            // Look for reviewer assignment: content like "X added Y as a reviewer" or "Y joined as a reviewer"
+            if (threadType == "ReviewersUpdate" && info.ReviewerAssignedDate == null)
+            {
+                var content = thread.Comments?.FirstOrDefault()?.Content;
+                if (content != null && content.Contains(currentUserName, StringComparison.OrdinalIgnoreCase))
+                {
+                    info.ReviewerAssignedDate = thread.PublishedDate;
+                }
+            }
+
+            // Look for vote by current user
+            if (threadType == "VoteUpdate" && info.ReviewerVotedDate == null)
+            {
+                var content = thread.Comments?.FirstOrDefault()?.Content;
+                if (content != null && content.Contains(currentUserName, StringComparison.OrdinalIgnoreCase))
+                {
+                    info.ReviewerVotedDate = thread.PublishedDate;
+                }
+            }
         }
     }
 

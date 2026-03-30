@@ -14,6 +14,8 @@ public class PullRequestInfo
     public string LastChangeInfo { get; set; } = string.Empty;
     public string PendingReason { get; set; } = string.Empty;
     public bool IsApprovedByMe { get; set; }
+    public DateTime? ReviewerAssignedDate { get; set; }
+    public DateTime? ReviewerVotedDate { get; set; }
 
     // Calculated properties for easy access
     public string Title => PullRequest?.Title ?? string.Empty;

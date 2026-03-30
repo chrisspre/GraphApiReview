@@ -52,4 +52,46 @@ public static class DateTimeExtensions
         var months = (int)(timeDiff.TotalDays / 30.44); // Average days per month
         return $"{months}mo ago";
     }
+
+    /// <summary>
+    /// Formats a TimeSpan as a compact duration string without "ago" suffix.
+    /// Uses "&lt;1m" for sub-minute durations instead of "just now".
+    /// Examples: "&lt;1m", "5m", "2h", "3d", "2w", "4mo"
+    /// </summary>
+    public static string FormatDuration(TimeSpan timeDiff)
+    {
+        if (timeDiff.TotalSeconds < 0)
+        {
+            return "0";
+        }
+
+        if (timeDiff.TotalMinutes < 1)
+        {
+            return "<1m";
+        }
+
+        if (timeDiff.TotalHours < 1)
+        {
+            return $"{(int)timeDiff.TotalMinutes} m";
+        }
+
+        if (timeDiff.TotalDays < 1)
+        {
+            return $"{(int)timeDiff.TotalHours} h";
+        }
+
+        if (timeDiff.TotalDays < 14)
+        {
+            return $"{(int)timeDiff.TotalDays} d";
+        }
+
+        if (timeDiff.TotalDays < 56)
+        {
+            var weeks = (int)(timeDiff.TotalDays / 7);
+            return $"{weeks} w";
+        }
+
+        var months = (int)(timeDiff.TotalDays / 30.44);
+        return $"{months} mo";
+    }
 }

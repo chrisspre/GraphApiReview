@@ -5,14 +5,9 @@ using gapir.Models;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-public partial class PullRequestRenderingService
+public partial class RenderingService(TerminalLinkService terminalLinkService)
 {
-    private readonly TerminalLinkService _terminalLinkService;
-
-    public PullRequestRenderingService(TerminalLinkService terminalLinkService)
-    {
-        _terminalLinkService = terminalLinkService;
-    }
+    private readonly TerminalLinkService _terminalLinkService = terminalLinkService;
 
     /// <summary>
     /// Renders pending pull requests result
@@ -56,6 +51,21 @@ public partial class PullRequestRenderingService
         else
         {
             RenderCompletedText(result, options);
+        }
+    }
+
+    /// <summary>
+    /// Renders a report of approved completed PRs grouped by week
+    /// </summary>
+    public void RenderReportPullRequests(List<gapir.Models.PullRequestInfo> approvedPRs, string currentUserDisplayName, int weeks, PullRequestRenderingOptions options)
+    {
+        if (options.Format == Format.Json)
+        {
+            RenderReportJson(approvedPRs, currentUserDisplayName, weeks);
+        }
+        else
+        {
+            RenderReportText(approvedPRs, currentUserDisplayName, weeks);
         }
     }
 
@@ -201,6 +211,126 @@ public partial class PullRequestRenderingService
         Console.WriteLine($"  Already Approved: {stats.AlreadyApproved}");
     }
 #endif
+
+    private void RenderReportJson(List<gapir.Models.PullRequestInfo> approvedPRs, string currentUserDisplayName, int weeks)
+    {
+        var grouped = GroupByWeek(approvedPRs);
+
+        var jsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        var json = JsonSerializer.Serialize(new
+        {
+            Type = "ReviewReport",
+            User = currentUserDisplayName,
+            Weeks = weeks,
+            TotalApproved = approvedPRs.Count,
+            WeekGroups = grouped.Select(g => new
+            {
+                WeekStart = g.Key.ToString("yyyy-MM-dd"),
+                Count = g.Count(),
+                PullRequests = g.Select(pr => new
+                {
+                    pr.PullRequestId,
+                    pr.Title,
+                    pr.AuthorName,
+                    ClosedDate = pr.PullRequest.ClosedDate.ToString("yyyy-MM-dd"),
+                    ReviewerAssignedDate = pr.ReviewerAssignedDate?.ToString("yyyy-MM-dd"),
+                    ReviewerVotedDate = pr.ReviewerVotedDate?.ToString("yyyy-MM-dd"),
+                    ReviewTimeDays = GetReviewTimeSpan(pr)?.TotalDays
+                })
+            })
+        }, jsonOptions);
+
+        Console.WriteLine(json);
+    }
+
+    private void RenderReportText(List<gapir.Models.PullRequestInfo> approvedPRs, string currentUserDisplayName, int weeks)
+    {
+        var weekLabel = weeks == 1 ? "Last Week" : $"Last {weeks} Weeks";
+        Console.WriteLine($"gapir (Graph API Review) - Review Report ({weekLabel})");
+        Console.WriteLine("===================================================================");
+        Console.WriteLine();
+
+        if (!approvedPRs.Any())
+        {
+            Console.WriteLine($"No approved completed pull requests found ({weekLabel.ToLower()}).");
+            return;
+        }
+
+        Console.WriteLine($"{approvedPRs.Count} PR(s) approved by {currentUserDisplayName} ({weekLabel.ToLower()}):");
+
+        var grouped = GroupByWeek(approvedPRs);
+
+        foreach (var week in grouped)
+        {
+            var weekEnd = week.Key.AddDays(6);
+            Console.WriteLine();
+            Console.WriteLine($"  Week of {week.Key:MMM dd} - {weekEnd:MMM dd, yyyy} ({week.Count()} PRs)");
+            Console.WriteLine($"  {new string('-', 50)}");
+
+            var headers = new[] { "Title", "Author", "Opened", "Closed", "Review" };
+            var maxWidths = new[] { 50, 20, 8, 8, 12 };
+            var alignRight = new[] { false, false, false, false, true };
+
+            var rows = new List<string[]>();
+            foreach (var info in week.OrderByDescending(pr => pr.PullRequest.ClosedDate))
+            {
+                var pr = info.PullRequest;
+                var clickableTitle = _terminalLinkService.CreatePullRequestLink(info.PullRequestId, ShortenTitle(pr.Title));
+                var openedStr = pr.CreationDate.ToString("MMM dd");
+                var closedStr = pr.ClosedDate.ToString("MMM dd");
+                var reviewTime = GetReviewTimeDisplay(info);
+
+                rows.Add([clickableTitle, pr.CreatedBy.DisplayName, openedStr, closedStr, reviewTime]);
+            }
+
+            PrintTable(headers, rows, maxWidths, alignRight);
+        }
+
+        Console.WriteLine($"  Total: {approvedPRs.Count} PRs approved across {grouped.Count()} weeks");
+    }
+
+    private static IOrderedEnumerable<IGrouping<DateTime, gapir.Models.PullRequestInfo>> GroupByWeek(List<gapir.Models.PullRequestInfo> pullRequests)
+    {
+        return pullRequests
+            .GroupBy(pr =>
+            {
+                var closedDate = pr.PullRequest.ClosedDate;
+                // Get the Monday of the week
+                var daysFromMonday = ((int)closedDate.DayOfWeek + 6) % 7;
+                return closedDate.AddDays(-daysFromMonday).Date;
+            })
+            .OrderByDescending(g => g.Key);
+    }
+
+    /// <summary>
+    /// Gets the review time span: from assigned to voted if available, otherwise assigned to closed.
+    /// Returns null if no assignment date is available.
+    /// </summary>
+    private static TimeSpan? GetReviewTimeSpan(gapir.Models.PullRequestInfo info)
+    {
+        if (info.ReviewerAssignedDate == null || info.ReviewerVotedDate == null)
+        {
+            return null;
+        }
+
+        return info.ReviewerVotedDate.Value - info.ReviewerAssignedDate.Value;
+    }
+
+    private static string GetReviewTimeDisplay(gapir.Models.PullRequestInfo info)
+    {
+        var span = GetReviewTimeSpan(info);
+        if (span == null)
+        {
+            return "n/a";
+        }
+
+        return DateTimeExtensions.FormatDuration(span.Value);
+    }
 
     private void RenderApprovedPRsTable(List<gapir.Models.PullRequestInfo> approvedPRs, PullRequestRenderingOptions options)
     {
@@ -365,7 +495,7 @@ public partial class PullRequestRenderingService
 
 
 
-    private static void PrintTable(string[] headers, IReadOnlyCollection<string[]> rows, int[] maxWidths)
+    private static void PrintTable(string[] headers, IReadOnlyCollection<string[]> rows, int[] maxWidths, bool[]? rightAlign = null)
     {
         if (headers == null || rows == null || maxWidths == null)
             return;
@@ -409,7 +539,8 @@ public partial class PullRequestRenderingService
         for (int i = 0; i < headers.Length; i++)
         {
             var header = maxWidths[i] == -1 ? headers[i] : TruncateStringByVisualWidth(headers[i], actualWidths[i]);
-            Console.Write(PadToVisualWidth(header, actualWidths[i]));
+            var isRight = rightAlign != null && i < rightAlign.Length && rightAlign[i];
+            Console.Write(isRight ? PadLeftToVisualWidth(header, actualWidths[i]) : PadToVisualWidth(header, actualWidths[i]));
             if (i < headers.Length - 1)
                 Console.Write(" | ");
         }
@@ -433,7 +564,8 @@ public partial class PullRequestRenderingService
             for (int i = 0; i < row.Length; i++)
             {
                 var content = maxWidths[i] == -1 ? (row[i] ?? "") : TruncateStringByVisualWidth(row[i] ?? "", actualWidths[i]);
-                Console.Write(PadToVisualWidth(content, actualWidths[i]));
+                var isRight = rightAlign != null && i < rightAlign.Length && rightAlign[i];
+                Console.Write(isRight ? PadLeftToVisualWidth(content, actualWidths[i]) : PadToVisualWidth(content, actualWidths[i]));
                 if (i < row.Length - 1)
                     Console.Write(" | ");
             }
@@ -543,5 +675,17 @@ public partial class PullRequestRenderingService
 
         // Add padding to reach target visual width
         return text + new string(' ', targetWidth - visualWidth);
+    }
+
+    private static string PadLeftToVisualWidth(string text, int targetWidth)
+    {
+        if (string.IsNullOrEmpty(text))
+            return new string(' ', targetWidth);
+
+        var visualWidth = GetVisualWidth(text);
+        if (visualWidth >= targetWidth)
+            return text;
+
+        return new string(' ', targetWidth - visualWidth) + text;
     }
 }

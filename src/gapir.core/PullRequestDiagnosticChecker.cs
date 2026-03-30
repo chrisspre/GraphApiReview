@@ -1,6 +1,5 @@
 namespace gapir;
 
-using gapir.Models;
 using gapir.Services;
 
 /// <summary>
@@ -32,7 +31,7 @@ public class PullRequestDiagnostics
     //     renderingService.RenderDiagnosticResult(result);
     // }
 
-    public async Task<PullRequestDiagnosticResult> GetDiagnosticResultAsync(int prId)
+    public async Task<string> GetDiagnosticResultAsync(int prId)
     {
         try
         {
@@ -42,25 +41,17 @@ public class PullRequestDiagnostics
             if (connection == null)
             {
                 Log.Error("Authentication failed.");
-                return new PullRequestDiagnosticResult
-                {
-                    PullRequestId = prId,
-                    ErrorMessage = "Authentication failed"
-                };
+                throw new InvalidOperationException("Authentication failed");
             }
 
             Log.Success("Authentication successful");
 
-            // Get diagnostic data using the diagnostic service
             return await _diagnosticService.DiagnosePullRequestAsync(connection, prId);
         }
         catch (Exception ex)
         {
-            return new PullRequestDiagnosticResult
-            {
-                PullRequestId = prId,
-                ErrorMessage = ex.Message
-            };
+            Log.Error($"Error diagnosing PR #{prId}: {ex.Message}");
+            throw;
         }
     }
 }

@@ -6,21 +6,14 @@ namespace gapir.Handlers;
 /// <summary>
 /// Handler for the diagnose command - shows diagnostic information for a specific PR
 /// </summary>
-public class DiagnoseCommandHandler
+public class DiagnoseCommandHandler(
+    PullRequestDiagnostics diagnosticChecker,
+    ConnectionService connectionService,
+    ConsoleLogger logger)
 {
-    private readonly PullRequestDiagnostics _diagnosticChecker;
-    private readonly ConnectionService _connectionService;
-    private readonly ConsoleLogger _logger;
-
-    public DiagnoseCommandHandler(
-        PullRequestDiagnostics diagnosticChecker,
-        ConnectionService connectionService,
-        ConsoleLogger logger)
-    {
-        _diagnosticChecker = diagnosticChecker;
-        _connectionService = connectionService;
-        _logger = logger;
-    }
+    private readonly PullRequestDiagnostics _diagnosticChecker = diagnosticChecker;
+    private readonly ConnectionService _connectionService = connectionService;
+    private readonly ConsoleLogger _logger = logger;
 
     /// <summary>
     /// Handles the diagnose command execution
@@ -38,12 +31,8 @@ public class DiagnoseCommandHandler
 
         try
         {
-            var result = await _diagnosticChecker.GetDiagnosticResultAsync(options.PullRequestId);
-            
-            // For now, just output the result. In the future, we could add a rendering service
-            Console.WriteLine($"Diagnostic result for PR #{options.PullRequestId}:");
-            Console.WriteLine($"Status: {result}");
-            
+            var filePath = await _diagnosticChecker.GetDiagnosticResultAsync(options.PullRequestId);
+            Console.WriteLine($"Diagnostic data for PR #{options.PullRequestId} saved to: {filePath}");
             return 0;
         }
         catch (Exception ex)

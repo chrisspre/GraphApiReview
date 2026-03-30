@@ -37,3 +37,8 @@ public record DiagnoseOptions(int PullRequestId);
 /// Options specific to the collect command
 /// </summary>
 public record CollectOptions(bool DryRun);
+
+/// <summary>
+/// Options specific to the report command
+/// </summary>
+public record ReportOptions(int Weeks = 1);

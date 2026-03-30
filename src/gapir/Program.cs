@@ -61,12 +61,13 @@ public class Program
         services.AddScoped<ReviewCommandHandler>();
         services.AddScoped<ApprovedCommandHandler>();
         services.AddScoped<CompletedCommandHandler>();
+        services.AddScoped<ReportCommandHandler>();
         services.AddScoped<DiagnoseCommandHandler>();
         services.AddScoped<CollectCommandHandler>();
         services.AddScoped<PreferencesCommandHandler>();
         
         // Rendering services
-        services.AddScoped<PullRequestRenderingService>();
+        services.AddScoped<RenderingService>();
         services.AddScoped<TerminalLinkService>();
         services.AddScoped<GraphAuthenticationService>();
         
@@ -125,6 +126,7 @@ public class Program
         AddReviewCommand(rootCommand, verboseOption, formatOption, detailedTimingOption, showDetailedInfoOption, noVoteOnlyOption, services);
         AddApprovedCommand(rootCommand, verboseOption, formatOption, services);
         AddCompletedCommand(rootCommand, verboseOption, formatOption, services);
+        AddReportCommand(rootCommand, verboseOption, formatOption, services);
         AddPreferencesCommand(rootCommand, verboseOption, formatOption, services);
         AddDiagnoseCommand(rootCommand, verboseOption, formatOption, services);
         AddCollectCommand(rootCommand, verboseOption, formatOption, services);
@@ -254,6 +256,40 @@ public class Program
         });
 
         rootCommand.Subcommands.Add(completedCommand);
+    }
+
+    private static void AddReportCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
+    {
+        var reportCommand = new Command("report", "Show completed PRs you approved, grouped by week (default: last week)");
+
+        var weeksOption = new Option<int>("--weeks", "-w")
+        {
+            Description = "Number of weeks back to show (default: 1, max: 52)",
+            DefaultValueFactory = _ => 1
+        };
+
+        reportCommand.Options.Add(weeksOption);
+
+        reportCommand.SetAction(async (parseResult, cancellationToken) =>
+        {
+            var handler = services.GetRequiredService<ReportCommandHandler>();
+            var verbose = parseResult.GetValue(verboseOption);
+            var format = parseResult.GetValue(formatOption);
+            var weeks = parseResult.GetValue(weeksOption);
+
+            if (weeks < 1 || weeks > 52)
+            {
+                Console.WriteLine("Weeks must be between 1 and 52.");
+                return 1;
+            }
+
+            var globalOptions = new GlobalOptions(verbose, format);
+            var reportOptions = new ReportOptions(weeks);
+            await handler.HandleAsync(reportOptions, globalOptions);
+            return 0;
+        });
+
+        rootCommand.Subcommands.Add(reportCommand);
     }
 
     private static void AddDiagnoseCommand(RootCommand rootCommand, Option<bool> verboseOption, Option<Format> formatOption, IServiceProvider services)
