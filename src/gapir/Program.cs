@@ -40,7 +40,6 @@ public class Program
         
         // Core services from gapir.core
         services.AddSingleton<ConsoleAuth>();
-        services.AddSingleton<IAuthenticationService>(sp => sp.GetRequiredService<ConsoleAuth>());
         services.AddScoped<PullRequestDiagnosticService>();
         
         // Register services

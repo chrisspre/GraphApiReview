@@ -2,6 +2,7 @@ namespace gapir.Services;
 
 using gapir.Extensions;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
+using Microsoft.VisualStudio.Services.WebApi;
 using gapir.Models;
 
 /// <summary>
@@ -201,6 +202,8 @@ public class PullRequestAnalysisService
         {
             DateTime? mostRecentActivityDate = null;
             string? mostRecentActivityAuthorId = null;
+            CommentType? mostRecentCommentType = null;
+            IdentityRef? mostRecentActivityAuthor = null;
             string changeType = "Created";
 
             // Check 1: PR threads/comments - look for different types of comments
@@ -217,6 +220,8 @@ public class PullRequestAnalysisService
                 {
                     mostRecentActivityDate = mostRecentComment.LastUpdatedDate;
                     mostRecentActivityAuthorId = mostRecentComment.Author?.Id;
+                    mostRecentCommentType = mostRecentComment.CommentType;
+                    mostRecentActivityAuthor = mostRecentComment.Author;
                     
                     // Determine comment type based on thread properties
                     var thread = threads.FirstOrDefault(t => t.Comments?.Contains(mostRecentComment) == true);
@@ -250,6 +255,8 @@ public class PullRequestAnalysisService
                 {
                     mostRecentActivityDate = mostRecentIteration.CreatedDate;
                     mostRecentActivityAuthorId = pr.CreatedBy.Id;
+                    mostRecentCommentType = null;
+                    mostRecentActivityAuthor = pr.CreatedBy;
                     changeType = "Pushed Code";
                 }
             }
@@ -289,13 +296,28 @@ public class PullRequestAnalysisService
             // Determine the relationship (who)
             string actor;
             if (mostRecentActivityAuthorId == _currentUserId.ToString())
+            {
                 actor = "Me";
+            }
             else if (mostRecentActivityAuthorId == pr.CreatedBy.Id)
+            {
                 actor = "Author";
+            }
             else
             {
                 var isReviewer = pr.Reviewers?.Any(r => r.Id.ToString() == mostRecentActivityAuthorId) == true;
-                actor = isReviewer ? "Reviewer" : "Other";
+                if (isReviewer)
+                {
+                    actor = "Reviewer";
+                }
+                else if (mostRecentCommentType == CommentType.System || mostRecentActivityAuthor?.IsContainer == true)
+                {
+                    actor = "System";
+                }
+                else
+                {
+                    actor = GetShortActorName(mostRecentActivityAuthor?.DisplayName);
+                }
             }
 
             // Format as "Who: What"
@@ -305,6 +327,18 @@ public class PullRequestAnalysisService
         {
             return "Unknown";
         }
+    }
+
+    private static string GetShortActorName(string? displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            return "Other";
+        }
+
+        // Use first name from "First Last" format
+        var firstName = displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+        return firstName.Length > 10 ? firstName[..10] : firstName;
     }
 
 }

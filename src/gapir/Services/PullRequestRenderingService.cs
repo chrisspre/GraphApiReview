@@ -278,7 +278,7 @@ public partial class PullRequestRenderingService
         }
 
         // Prepare table data for pending PRs (no URL column)
-        var headers = new[] { "Title", "Author", "Status", "Age", "Ratio", "Change" };
+        var headers = new[] { "Title", "Author", "Status", "Age", "X/Y", "Change" };
         var maxWidths = new[] { 50, 20, 6, 10, 6, 27 }; // Standardized Title=50, Author=20 for consistency across tables
 
         var rows = new List<string[]>();
