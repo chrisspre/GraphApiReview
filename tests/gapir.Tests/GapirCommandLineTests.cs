@@ -39,6 +39,7 @@ public class GapirCommandLineTests
         Assert.Contains("collect", result.Output);
         Assert.Contains("diagnose", result.Output);
         Assert.Contains("approved", result.Output);
+        Assert.Contains("report", result.Output);
     }
 
     [Fact]
@@ -58,6 +59,7 @@ public class GapirCommandLineTests
     [InlineData("collect --help")]
     [InlineData("diagnose --help")]
     [InlineData("approved --help")]
+    [InlineData("report --help")]
     public async Task SubcommandHelp_ShowsSubcommandSpecificHelp(string command)
     {
         // Arrange & Act
@@ -70,6 +72,31 @@ public class GapirCommandLineTests
         // Extract subcommand name for verification
         var subcommand = command.Split(' ')[0];
         Assert.Contains(subcommand, result.Output);
+    }
+
+    [Fact]
+    public async Task ReportHelp_ShowsIncludeCurrentWeekOption()
+    {
+        // Arrange & Act
+        var result = await RunGapirAsync("report --help");
+
+        // Assert
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("--include-current-week", result.Output);
+    }
+
+    [Theory]
+    [InlineData("report --weeks 0", "Weeks must be between 1 and 52 unless --include-current-week is set.")]
+    [InlineData("report --weeks 53", "Weeks must be between 0 and 52.")]
+    [InlineData("report -i --weeks 53", "Weeks must be between 0 and 52.")]
+    public async Task ReportCommand_InvalidWeeks_ShowsValidationError(string command, string expectedMessage)
+    {
+        // Arrange & Act
+        var result = await RunGapirAsync(command);
+
+        // Assert
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains(expectedMessage, result.Output);
     }
 
     [Fact]

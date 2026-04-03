@@ -41,4 +41,4 @@ public record CollectOptions(bool DryRun);
 /// <summary>
 /// Options specific to the report command
 /// </summary>
-public record ReportOptions(int Weeks = 1);
+public record ReportOptions(int Weeks = 1, bool IncludeCurrentWeek = false);

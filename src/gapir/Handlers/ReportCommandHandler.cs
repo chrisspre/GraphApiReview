@@ -47,7 +47,9 @@ public class ReportCommandHandler
             var today = DateTime.UtcNow.Date;
             var daysFromMonday = ((int)today.DayOfWeek + 6) % 7; // Monday=0, Sunday=6
             var thisMonday = today.AddDays(-daysFromMonday);
-            var rangeEnd = thisMonday; // exclusive: this Monday 00:00 (i.e. Sun 23:59:59 is included)
+            var rangeEnd = options.IncludeCurrentWeek
+                ? today.AddDays(1) // exclusive: tomorrow 00:00 (includes current day)
+                : thisMonday; // exclusive: this Monday 00:00 (i.e. Sun 23:59:59 is included)
             var rangeStart = thisMonday.AddDays(-7 * options.Weeks);
 
             // Fetch enough data to cover the range (add buffer for timezone differences)

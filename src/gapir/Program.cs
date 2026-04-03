@@ -1,4 +1,5 @@
 ﻿using System.CommandLine;
+using System.CommandLine.Parsing;
 using System.Diagnostics;
 using gapir.Services;
 using gapir.Handlers;
@@ -264,27 +265,45 @@ public class Program
 
         var weeksOption = new Option<int>("--weeks", "-w")
         {
-            Description = "Number of weeks back to show (default: 1, max: 52)",
-            DefaultValueFactory = _ => 1
+            Description = "Number of historical weeks to show (default: 1, or 0 when --include-current-week is set)"
+        };
+
+        var includeCurrentWeekOption = new Option<bool>("--include-current-week", "-i")
+        {
+            Description = "Include completed PRs from the current (partial) week"
         };
 
         reportCommand.Options.Add(weeksOption);
+        reportCommand.Options.Add(includeCurrentWeekOption);
 
         reportCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var handler = services.GetRequiredService<ReportCommandHandler>();
             var verbose = parseResult.GetValue(verboseOption);
             var format = parseResult.GetValue(formatOption);
-            var weeks = parseResult.GetValue(weeksOption);
+            var includeCurrentWeek = parseResult.GetValue(includeCurrentWeekOption);
+            var hasExplicitWeeks = parseResult.CommandResult
+                .Children
+                .OfType<OptionResult>()
+                .Any(optionResult => optionResult.Option == weeksOption);
+            var weeks = hasExplicitWeeks
+                ? parseResult.GetValue(weeksOption)
+                : includeCurrentWeek ? 0 : 1;
 
-            if (weeks < 1 || weeks > 52)
+            if (weeks < 0 || weeks > 52)
             {
-                Console.WriteLine("Weeks must be between 1 and 52.");
+                Console.WriteLine("Weeks must be between 0 and 52.");
+                return 1;
+            }
+
+            if (!includeCurrentWeek && weeks == 0)
+            {
+                Console.WriteLine("Weeks must be between 1 and 52 unless --include-current-week is set.");
                 return 1;
             }
 
             var globalOptions = new GlobalOptions(verbose, format);
-            var reportOptions = new ReportOptions(weeks);
+            var reportOptions = new ReportOptions(weeks, includeCurrentWeek);
             await handler.HandleAsync(reportOptions, globalOptions);
             return 0;
         });
