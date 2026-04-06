@@ -46,8 +46,7 @@ public class CompletedCommandHandler
             var renderingOptions = new PullRequestRenderingOptions
             {
                 ShowDetailedTiming = options.DetailedTiming,
-                ShowDetailedInfo = options.ShowDetailedInfo,
-                Format = globalOptions.Format
+                ShowDetailedInfo = options.ShowDetailedInfo
             };
 
             _renderer.RenderCompletedPullRequests(result, renderingOptions);

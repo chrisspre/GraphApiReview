@@ -2,7 +2,6 @@ namespace gapir.Services;
 
 using gapir.Extensions;
 using gapir.Models;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 public partial class RenderingService(TerminalLinkService terminalLinkService)
@@ -14,14 +13,7 @@ public partial class RenderingService(TerminalLinkService terminalLinkService)
     /// </summary>
     public void RenderPendingPullRequests(PendingPullRequestResult result, PullRequestRenderingOptions options)
     {
-        if (options.Format == Format.Json)
-        {
-            RenderPendingJson(result);
-        }
-        else
-        {
-            RenderPendingText(result, options);
-        }
+        RenderPendingText(result, options);
     }
 
     /// <summary>
@@ -29,14 +21,7 @@ public partial class RenderingService(TerminalLinkService terminalLinkService)
     /// </summary>
     public void RenderApprovedPullRequests(ApprovedPullRequestResult result, PullRequestRenderingOptions options)
     {
-        if (options.Format == Format.Json)
-        {
-            RenderApprovedJson(result);
-        }
-        else
-        {
-            RenderApprovedText(result, options);
-        }
+        RenderApprovedText(result, options);
     }
 
     /// <summary>
@@ -44,14 +29,7 @@ public partial class RenderingService(TerminalLinkService terminalLinkService)
     /// </summary>
     public void RenderCompletedPullRequests(CompletedPullRequestResult result, PullRequestRenderingOptions options)
     {
-        if (options.Format == Format.Json)
-        {
-            RenderCompletedJson(result);
-        }
-        else
-        {
-            RenderCompletedText(result, options);
-        }
+        RenderCompletedText(result, options);
     }
 
     /// <summary>
@@ -59,52 +37,7 @@ public partial class RenderingService(TerminalLinkService terminalLinkService)
     /// </summary>
     public void RenderReportPullRequests(List<gapir.Models.PullRequestInfo> approvedPRs, string currentUserDisplayName, int weeks, PullRequestRenderingOptions options)
     {
-        if (options.Format == Format.Json)
-        {
-            RenderReportJson(approvedPRs, currentUserDisplayName, weeks);
-        }
-        else
-        {
-            RenderReportText(approvedPRs, currentUserDisplayName, weeks);
-        }
-    }
-
-    private void RenderPendingJson(PendingPullRequestResult result)
-    {
-        var jsonOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-        
-        var json = JsonSerializer.Serialize(new
-        {
-            Type = "PendingPullRequests",
-            User = result.CurrentUserDisplayName,
-            Statistics = result.Statistics,
-            PullRequests = result.PendingPullRequests
-        }, jsonOptions);
-        
-        Console.WriteLine(json);
-    }
-
-    private void RenderApprovedJson(ApprovedPullRequestResult result)
-    {
-        var jsonOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-        
-        var json = JsonSerializer.Serialize(new
-        {
-            Type = "ApprovedPullRequests",
-            User = result.CurrentUserDisplayName,
-            Statistics = result.Statistics,
-            PullRequests = result.ApprovedPullRequests
-        }, jsonOptions);
-        
-        Console.WriteLine(json);
+        RenderReportText(approvedPRs, currentUserDisplayName, weeks);
     }
 
     private void RenderPendingText(PendingPullRequestResult result, PullRequestRenderingOptions options)
@@ -157,25 +90,6 @@ public partial class RenderingService(TerminalLinkService terminalLinkService)
 #endif
     }
 
-    private void RenderCompletedJson(CompletedPullRequestResult result)
-    {
-        var jsonOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-        
-        var json = JsonSerializer.Serialize(new
-        {
-            Type = "CompletedPullRequests",
-            User = result.CurrentUserDisplayName,
-            Statistics = result.Statistics,
-            PullRequests = result.CompletedPullRequests
-        }, jsonOptions);
-        
-        Console.WriteLine(json);
-    }
-
     private void RenderCompletedText(CompletedPullRequestResult result, PullRequestRenderingOptions options)
     {
         Console.WriteLine($"gapir (Graph API Review) - Completed Pull Requests (Last {result.DaysBack} Days)");
@@ -211,42 +125,6 @@ public partial class RenderingService(TerminalLinkService terminalLinkService)
         Console.WriteLine($"  Already Approved: {stats.AlreadyApproved}");
     }
 #endif
-
-    private void RenderReportJson(List<gapir.Models.PullRequestInfo> approvedPRs, string currentUserDisplayName, int weeks)
-    {
-        var grouped = GroupByWeek(approvedPRs);
-
-        var jsonOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-
-        var json = JsonSerializer.Serialize(new
-        {
-            Type = "ReviewReport",
-            User = currentUserDisplayName,
-            Weeks = weeks,
-            TotalApproved = approvedPRs.Count,
-            WeekGroups = grouped.Select(g => new
-            {
-                WeekStart = g.Key.ToString("yyyy-MM-dd"),
-                Count = g.Count(),
-                PullRequests = g.Select(pr => new
-                {
-                    pr.PullRequestId,
-                    pr.Title,
-                    pr.AuthorName,
-                    ClosedDate = pr.PullRequest.ClosedDate.ToString("yyyy-MM-dd"),
-                    ReviewerAssignedDate = pr.ReviewerAssignedDate?.ToString("yyyy-MM-dd"),
-                    ReviewerVotedDate = pr.ReviewerVotedDate?.ToString("yyyy-MM-dd"),
-                    ReviewTimeDays = GetReviewTimeSpan(pr)?.TotalDays
-                })
-            })
-        }, jsonOptions);
-
-        Console.WriteLine(json);
-    }
 
     private void RenderReportText(List<gapir.Models.PullRequestInfo> approvedPRs, string currentUserDisplayName, int weeks)
     {

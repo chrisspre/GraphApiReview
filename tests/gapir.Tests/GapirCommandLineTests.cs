@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text;
-using System.Text.Json;
 using Xunit.Abstractions;
 
 namespace gapir.Tests;
@@ -144,58 +143,17 @@ public class GapirCommandLineTests
     }
 
     [Theory]
-    [InlineData("approved", true)] // Show approved PRs
-    [InlineData("approved --verbose", true)] // Show approved + verbose
-    [InlineData("review --verbose", false)] // Review with verbose
-    public async Task Subcommand_Combinations_ProduceExpectedBehavior(string subcommand, bool expectApproved)
+    [InlineData("approved --help")]
+    [InlineData("approved --verbose --help")]
+    [InlineData("review --verbose --help")]
+    public async Task Subcommand_Combinations_ShowExpectedHelpSurface(string subcommand)
     {
-        // Arrange & Act - Use JSON output for consistent testing
-        var result = await RunGapirAsync($"{subcommand} --format Json".Trim());
+        // Arrange & Act
+        var result = await RunGapirAsync(subcommand);
 
         // Assert
         Assert.Equal(0, result.ExitCode);
-
-        // Parse JSON output
-        var jsonDoc = JsonDocument.Parse(result.Output);
-        var root = jsonDoc.RootElement;
-
-        // Verify basic structure
-        Assert.True(root.TryGetProperty("title", out var titleProp));
-        Assert.Contains("gapir", titleProp.GetString()!);
-
-        // Check authentication success (should be true for valid flags)
-        Assert.True(root.TryGetProperty("authenticationSuccessful", out var authProp));
-        Assert.True(authProp.GetBoolean());
-
-        // Check data structure presence
-        Assert.True(root.TryGetProperty("pendingPRs", out var pendingProp));
-        Assert.True(root.TryGetProperty("approvedPRs", out var approvedProp));
-        Assert.True(root.TryGetProperty("apiReviewersFoundViaGroup", out var apiReviewersFoundProp));
-
-        // Check that we have PR data arrays (they can be empty but should exist)
-        Assert.Equal(JsonValueKind.Array, pendingProp.ValueKind);
-        Assert.Equal(JsonValueKind.Array, approvedProp.ValueKind);
-
-        // If we have PR data, verify the data structure
-        if (pendingProp.GetArrayLength() > 0)
-        {
-            var firstPr = pendingProp[0];
-            // Basic PR properties should be present
-            Assert.True(firstPr.TryGetProperty("title", out var prTitleProp));
-            Assert.True(firstPr.TryGetProperty("pullRequestId", out var idProp));
-            Assert.True(firstPr.TryGetProperty("myVoteStatus", out var statusProp));
-            
-            // Verify we have meaningful data
-            Assert.False(string.IsNullOrEmpty(prTitleProp.GetString()));
-            Assert.True(idProp.GetInt32() > 0);
-        }
-
-        // Verify approved PR data is present if requested
-        if (expectApproved)
-        {
-            // The approved PRs array should be available (may be empty but present)
-            Assert.Equal(JsonValueKind.Array, approvedProp.ValueKind);
-        }
+        Assert.Contains("Usage:", result.Output);
     }
 
     [Theory]
@@ -306,9 +264,7 @@ public class GapirCommandLineTests
         var output = outputBuilder.ToString();
         var error = errorBuilder.ToString();
 
-        // For JSON output tests, we only want stdout since stderr contains logging
-        var outputForTesting = arguments.Contains("--format Json") ? output :
-            string.IsNullOrEmpty(error) ? output : $"{output}\nSTDERR:\n{error}";
+        var outputForTesting = string.IsNullOrEmpty(error) ? output : $"{output}\nSTDERR:\n{error}";
 
         _output.WriteLine($"Command: dotnet run -- {arguments}");
         _output.WriteLine($"Exit Code: {process.ExitCode}");

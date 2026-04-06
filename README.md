@@ -8,7 +8,6 @@ A CLI tool to check Azure DevOps pull requests assigned to you for review.
 
 **Features:**
 - **Pull Request Checker**: View PRs assigned to you for review
-- **JSON Output**: Structured JSON output for automation and integration (`--format Json`)
 - **Performance Optimized**: Only fetches approved PRs when requested (`--approved`)
 - **Modern Authentication**: Brokered authentication (Windows Hello/PIN) with device code fallback  
 - **Cross-platform**: Works on Windows, macOS, and Linux
@@ -43,12 +42,6 @@ gapir
 # Show approved PRs too (performance: only fetches when requested)
 gapir --approved
 
-# JSON output for automation/integration
-gapir --format Json
-
-# JSON output with approved PRs
-gapir --format Json --approved
-
 # Use full URLs instead of short links
 gapir --full-urls
 
@@ -58,33 +51,6 @@ gapir --detailed-timing
 # Verbose output for troubleshooting
 gapir --verbose
 ```
-
-### JSON Output Format
-
-When using `--format Json`, gapir outputs clean structured data:
-
-```json
-{
-  "title": "gapir (Graph API Review) - Azure DevOps Pull Request Checker",
-  "pendingPRs": [
-    {
-      "id": 12345,
-      "title": "Add new API endpoint",
-      "authorName": "John Doe",
-      "createdDate": "2025-08-29T10:00:00Z",
-      "url": "https://msazure.visualstudio.com/...",
-      "myVoteStatus": "NoVote",
-      "isApprovedByMe": false
-    }
-  ],
-  "approvedPRs": [
-    // Only included when --approved is specified
-  ],
-  "errorMessage": null
-}
-```
-
-**Performance Note**: The `approvedPRs` property is only populated when `--approved` is specified, avoiding expensive queries when not needed.
 
 ## 🔗 OSC 8 Terminal Hyperlinks
 
@@ -134,7 +100,6 @@ dotnet test --verbosity normal
 - Help command functionality (`--help`, `-h`)
 - Flag combinations (`--verbose`, `--approved`, `--full-urls`)
 - Edge cases and error handling
-- JSON output validation
 
 ## 🛠️ Development
 

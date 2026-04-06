@@ -62,10 +62,7 @@ public class ReportCommandHandler
                 .Where(pr => pr.PullRequest.ClosedDate >= rangeStart && pr.PullRequest.ClosedDate < rangeEnd)
                 .ToList();
 
-            var renderingOptions = new PullRequestRenderingOptions
-            {
-                Format = globalOptions.Format
-            };
+            var renderingOptions = new PullRequestRenderingOptions();
 
             _renderer.RenderReportPullRequests(approvedByMe, result.CurrentUserDisplayName, options.Weeks, renderingOptions);
             return 0;

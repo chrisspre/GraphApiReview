@@ -53,8 +53,7 @@ public class ReviewCommandHandler
             var renderingOptions = new PullRequestRenderingOptions
             {
                 ShowDetailedTiming = options.DetailedTiming,
-                ShowDetailedInfo = options.ShowDetailedInfo,
-                Format = globalOptions.Format
+                ShowDetailedInfo = options.ShowDetailedInfo
             };
 
             _renderer.RenderPendingPullRequests(result, renderingOptions);

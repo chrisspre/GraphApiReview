@@ -18,7 +18,7 @@ public class PreferencesCommandHandler
     /// <summary>
     /// Handles the get preferences command
     /// </summary>
-    public async Task<int> HandleGetPreferencesAsync(string format, bool verbose, bool showAll)
+    public async Task<int> HandleGetPreferencesAsync(bool verbose, bool showAll)
     {
         try
         {
@@ -43,39 +43,16 @@ public class PreferencesCommandHandler
                 Console.WriteLine();
             }
 
-            switch (format.ToLower())
+            if (showAll)
             {
-                case "json":
-                    var jsonOptions = new System.Text.Json.JsonSerializerOptions 
-                    { 
-                        WriteIndented = true,
-                        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-                    };
-                    
-                    if (showAll)
-                    {
-                        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(preferences, jsonOptions));
-                    }
-                    else
-                    {
-                        var timeAllocationOnly = new { timeAllocation = preferences.TimeAllocation };
-                        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(timeAllocationOnly, jsonOptions));
-                    }
-                    break;
-                
-                default: // table format
-                    if (showAll)
-                    {
-                        Console.WriteLine($"Time Allocation:       {preferences.TimeAllocation}");
-                        Console.WriteLine($"Secondary On-Call:     {preferences.SecondaryOnCallStrategy}");
-                        Console.WriteLine($"Private Notifications: {string.Join(", ", preferences.PrivateNotifications)}");
-                        Console.WriteLine($"On-Call Skip:          {string.Join(", ", preferences.OnCallSkip.Where(x => !string.IsNullOrEmpty(x)))}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Time Allocation: {preferences.TimeAllocation}");
-                    }
-                    break;
+                Console.WriteLine($"Time Allocation:       {preferences.TimeAllocation}");
+                Console.WriteLine($"Secondary On-Call:     {preferences.SecondaryOnCallStrategy}");
+                Console.WriteLine($"Private Notifications: {string.Join(", ", preferences.PrivateNotifications)}");
+                Console.WriteLine($"On-Call Skip:          {string.Join(", ", preferences.OnCallSkip.Where(x => !string.IsNullOrEmpty(x)))}");
+            }
+            else
+            {
+                Console.WriteLine($"Time Allocation: {preferences.TimeAllocation}");
             }
 
             return 0;
